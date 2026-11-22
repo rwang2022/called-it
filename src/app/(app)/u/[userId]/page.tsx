@@ -21,6 +21,7 @@ import { requestNow } from "@/lib/now";
 import { vapidPublicKey } from "@/lib/notify";
 import { NotificationSettings } from "@/components/push/notification-settings";
 import { SignInMethods } from "@/components/auth/sign-in-methods";
+import { ProfileEditor } from "@/components/profile/profile-editor";
 
 type Props = { params: Promise<{ userId: string }>; searchParams: Promise<Record<string, string | undefined>> };
 
@@ -115,6 +116,7 @@ export default async function ProfilePage({ params, searchParams }: Props) {
         />
       </div>
 
+      {isMe && !isBot && <ProfileEditor user={target} />}
       {isMe && !isBot && <NotificationSettings publicKey={vapidPublicKey()} />}
       {isMe && !isBot && (
         <SignInMethods {...(await signInInfo(viewer.id))} googleAvailable={googleConfigured()} error={sp.error ? (LINK_ERRORS[sp.error] ?? null) : null} />

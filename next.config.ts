@@ -28,6 +28,8 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
+      // Uploaded profile photos: never anything but an image (a later rule wins for the same header).
+      { source: "/api/avatar/:path*", headers: [{ key: "Content-Security-Policy", value: "default-src 'none'; sandbox" }] },
       {
         // The push service worker: always revalidate so fixes reach devices, and lock it to same-origin code.
         source: "/sw.js",

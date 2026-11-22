@@ -22,6 +22,13 @@
       "when": 1795320712311,
       "tag": "0002_password_signin",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1795378264132,
+      "tag": "0003_profile_edits",
+      "breakpoints": true
     }
   ]
 }

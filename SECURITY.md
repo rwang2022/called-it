@@ -29,6 +29,7 @@ Please open a private report via **GitHub → Security → Report a vulnerabilit
 
 - All server action inputs are validated with zod. All database access goes through Drizzle's parameterized queries; there is no raw SQL built from strings.
 - No `dangerouslySetInnerHTML`. React escapes everything users write.
+- Profile photo uploads are resized to 256px in the browser, capped at 300 KB on the server, and identified by their bytes (JPEG, PNG or WebP only), not the type the browser claims. They're served with `nosniff` and `Content-Security-Policy: default-src 'none'; sandbox`, so a disguised file can never run as a page (`src/lib/actions/profile.ts`, `src/app/api/avatar/`).
 - Links that Claude cites are restricted to `http(s)://` and open with `rel="noopener noreferrer nofollow"`.
 - Post-login redirects only accept same-site relative paths (`safeNext`).
 - Server actions are protected against CSRF by Next.js's Origin check. The one JSON route (`/api/push/resubscribe`) requires `application/json`, which a cross-site form can't send, plus the `SameSite=Lax` session cookie.

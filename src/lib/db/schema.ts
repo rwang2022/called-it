@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  blob,
   index,
   integer,
   primaryKey,
@@ -23,11 +24,24 @@ export const users = sqliteTable(
     passwordHash: text("password_hash"),
     name: text("name").notNull(),
     image: text("image"),
+    // Set when the person edits their name or photo, so Google sign-in stops overwriting them.
+    nameEdited: integer("name_edited", { mode: "boolean" }).notNull().default(false),
+    imageEdited: integer("image_edited", { mode: "boolean" }).notNull().default(false),
     isBot: integer("is_bot", { mode: "boolean" }).notNull().default(false),
     createdAt: ts("created_at").notNull().default(now),
   },
   (t) => [uniqueIndex("users_username_idx").on(t.username)],
 );
+
+/** Uploaded profile photos (small, resized in the browser), served by /api/avatar/[userId]. */
+export const avatars = sqliteTable("avatars", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  contentType: text("content_type").notNull(),
+  data: blob("data", { mode: "buffer" }).notNull(),
+  updatedAt: ts("updated_at").notNull().default(now),
+});
 
 /** Failed password sign-ins, bucketed per key ("u:<username>" or "ip:<addr>") to slow guessing. */
 export const authThrottle = sqliteTable("auth_throttle", {

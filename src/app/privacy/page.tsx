@@ -15,7 +15,7 @@ export default function PrivacyPage() {
         <p>{APP_NAME} is a small app for friends to make bets and predictions with each other. Here is exactly what it does with your data.</p>
         <h2>What we store</h2>
         <p>
-          When you sign in with Google we receive your name, email address and profile picture. If you use a username instead, we store that username and a salted scrypt hash of your password (never the password itself). We store those, plus what you do in the app: groups
+          When you sign in with Google we receive your name, email address and profile picture. If you use a username instead, we store that username and a salted scrypt hash of your password (never the password itself). If you upload a profile photo, we store a small 256px copy; removing it deletes it. We store those, plus what you do in the app: groups
           you join, bets you create, positions, comments, calls, votes and payments you record.
         </p>
         <h2>Who can see it</h2>
