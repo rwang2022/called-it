@@ -32,7 +32,8 @@ Please open a private report via **GitHub → Security → Report a vulnerabilit
 - Links that Claude cites are restricted to `http(s)://` and open with `rel="noopener noreferrer nofollow"`.
 - Post-login redirects only accept same-site relative paths (`safeNext`).
 - Server actions are protected against CSRF by Next.js's Origin check. The one JSON route (`/api/push/resubscribe`) requires `application/json`, which a cross-site form can't send, plus the `SameSite=Lax` session cookie.
-- Headers: `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy`, and a CSP with `frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'`. The service worker gets a strict same-origin CSP. A `script-src` policy isn't set yet; it needs per-request nonces for Next's inline bootstrap.
+- **Content Security Policy (strict, nonce-based).** Every page response carries a fresh random nonce, and scripts only run if they carry it or were loaded by one that does (`'strict-dynamic'`). An injected `<script>` or inline handler like `onerror=` is refused by the browser even if some bug let it into the page. There's no `'unsafe-inline'` or `'unsafe-eval'` for scripts in production. Inline *styles* are allowed, since they can't run code. Images are limited to this site and Google profile pictures, and framing, `<base>`, plugins and off-site form posts are blocked. Pages are rendered per request so each gets its own nonce (`src/proxy.ts`, `src/app/layout.tsx`).
+- Other headers: `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy`. Non-page responses (API routes, icons) get a baseline CSP from `next.config.ts`, and the service worker gets a strict same-origin one.
 
 ## Outbound requests
 

@@ -8,8 +8,8 @@ const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
-  // No script-src yet (Next's inline bootstrap would need nonces); these block framing,
-  // <base> hijacking, plugins, and forms posting anywhere but this site.
+  // Pages get a stricter, nonce-based policy from src/proxy.ts. This baseline covers
+  // everything else (API routes, icons, the manifest) and is enforced alongside it.
   { key: "Content-Security-Policy", value: "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'" },
 ];
 

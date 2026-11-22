@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { connection } from "next/server";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import { TimezoneSync } from "@/components/timezone-sync";
 import { Toaster } from "@/components/ui/toast";
@@ -29,7 +30,10 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Render every page per request, never as a prebuilt file: the CSP nonce that
+  // lets Next's scripts run (see src/proxy.ts) is different on every request.
+  await connection();
   return (
     <html lang="en" className={`${geist.variable} ${geistMono.variable} ${instrument.variable} antialiased`}>
       <body>
