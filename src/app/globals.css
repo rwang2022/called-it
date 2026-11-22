@@ -251,6 +251,12 @@ select optgroup {
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
+    /* Italic glyphs lean past the box and the clipped gradient would cut them off:
+       pad the paint area out, and pull the spacing back so layout doesn't move. */
+    padding-inline: 0.06em 0.16em;
+    margin-inline: -0.06em -0.16em;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
   }
 
   .skeleton {
