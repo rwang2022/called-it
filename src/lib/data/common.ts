@@ -41,7 +41,7 @@ export async function myGroupIds(userId: string): Promise<string[]> {
 
 export async function groupMemberList(groupId: string) {
   return db
-    .select({ ...miniUserCols, role: groupMembers.role, joinedAt: groupMembers.joinedAt })
+    .select({ ...miniUserCols, role: groupMembers.role, joinedAt: groupMembers.joinedAt, lastSeenAt: users.lastSeenAt })
     .from(groupMembers)
     .innerJoin(users, eq(users.id, groupMembers.userId))
     .where(eq(groupMembers.groupId, groupId))

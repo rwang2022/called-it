@@ -29,6 +29,13 @@
       "when": 1795378264132,
       "tag": "0003_profile_edits",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1795378572950,
+      "tag": "0004_presence",
+      "breakpoints": true
     }
   ]
 }

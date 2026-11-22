@@ -3,10 +3,12 @@ import { Plus } from "lucide-react";
 import { groupMemberList, requireMember } from "@/lib/data/common";
 import { AvatarStack } from "@/components/ui/avatar";
 import { CopyInvite, GroupTabs } from "@/components/group/group-chrome";
+import { OnlineNow } from "@/components/presence/presence";
+import { requestNow } from "@/lib/now";
 
 export default async function GroupLayout({ children, params }: { children: React.ReactNode; params: Promise<{ groupId: string }> }) {
   const { groupId } = await params;
-  const { group } = await requireMember(groupId);
+  const { group, user } = await requireMember(groupId);
   const members = await groupMemberList(groupId);
   return (
     <div>
@@ -23,9 +25,15 @@ export default async function GroupLayout({ children, params }: { children: Reac
           </span>
           <div className="min-w-0">
             <h1 className="display truncate text-[2.3rem] leading-none sm:text-[2.8rem]">{group.name}</h1>
-            <div className="mt-2 flex items-center gap-2 text-sm text-muted">
+            <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
               <AvatarStack users={members} max={6} size="xs" />
               {members.length} {members.length === 1 ? "member" : "members"}
+              <OnlineNow
+                groupId={group.id}
+                viewerId={user.id}
+                serverNow={requestNow()}
+                members={members.map((m) => ({ id: m.id, name: m.name, image: m.image, isBot: m.isBot, lastSeenAt: m.lastSeenAt?.getTime() ?? null }))}
+              />
             </div>
           </div>
         </div>

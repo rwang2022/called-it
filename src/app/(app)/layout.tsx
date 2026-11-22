@@ -6,6 +6,7 @@ import { attentionFor } from "@/lib/data/bets";
 import { pendingPaymentsFor } from "@/lib/data/ledger";
 import { BottomNav, MobileHeader, Sidebar } from "@/components/shell/nav";
 import { PushSync } from "@/components/push/push-sync";
+import { PresenceHeartbeat } from "@/components/presence/presence";
 import { pushConfigured } from "@/lib/notify";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -33,6 +34,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </div>
       <BottomNav userId={user.id} inbox={inbox} />
       <PushSync enabled={pushConfigured()} />
+      <PresenceHeartbeat />
     </div>
   );
 }

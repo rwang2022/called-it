@@ -23,6 +23,7 @@ Please open a private report via **GitHub → Security → Report a vulnerabilit
 - Non-members get a 404, not a 403, so group and bet ids don't leak. Profiles only show stats from groups you share.
 - Bet rules (no betting against yourself, neutral judges can't bet, terms locked once others join, who may call, review and dispute) are enforced server-side in the pure, unit-tested state machine at `src/lib/engine/rules.ts`.
 - Claude's pick on a bet stays on the server until betting closes. The data layer replaces it with `{ state: "sealed" }` and strips Claude's note (`src/lib/data/bets.ts`).
+- "Who's online" only shows people in groups you share. The heartbeat (`POST /api/presence`) needs a session and a JSON content type, so other sites can't trigger it, and the lookup (`GET /api/presence?group=`) checks membership and returns only member ids and last-seen times (`src/lib/presence.ts`).
 - Payments need the receiver's confirmation, and only the receiver can confirm (`src/lib/actions/payments.ts`).
 
 ## Inputs and output

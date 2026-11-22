@@ -2,7 +2,10 @@ import Link from "next/link";
 import { Crown } from "lucide-react";
 import { groupMemberList, requireMember } from "@/lib/data/common";
 import { viewerTimeZone } from "@/lib/tz";
-import { formatDate } from "@/lib/format";
+import { formatDate, relativeTime } from "@/lib/format";
+import { isOnline } from "@/lib/presence";
+import { requestNow } from "@/lib/now";
+import { OnlineDot } from "@/components/presence/presence";
 import { Avatar } from "@/components/ui/avatar";
 import { CopyInvite } from "@/components/group/group-chrome";
 import { LeaveGroupButton, RemoveMemberButton, RenameGroupForm, ResetInviteButton } from "@/components/group/member-actions";
@@ -14,6 +17,7 @@ export default async function MembersPage({ params }: { params: Promise<{ groupI
   const { user, group, role } = await requireMember(groupId);
   const [members, tz] = await Promise.all([groupMemberList(groupId), viewerTimeZone()]);
   const owner = role === "owner";
+  const now = requestNow();
 
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
@@ -21,8 +25,9 @@ export default async function MembersPage({ params }: { params: Promise<{ groupI
         <ul className="divide-y divide-white/[0.06]">
           {members.map((m) => (
             <li key={m.id} className="flex items-center gap-3 px-5 py-3.5">
-              <Link href={`/u/${m.id}`}>
+              <Link href={`/u/${m.id}`} className="relative shrink-0">
                 <Avatar user={m} size="md" />
+                {!m.isBot && isOnline(m.lastSeenAt, now) && <OnlineDot />}
               </Link>
               <div className="min-w-0 flex-1">
                 <Link href={`/u/${m.id}`} className="flex items-center gap-1.5 font-semibold hover:underline">
@@ -30,7 +35,14 @@ export default async function MembersPage({ params }: { params: Promise<{ groupI
                   {m.id === user.id && <span className="text-xs font-normal text-muted">(you)</span>}
                   {m.role === "owner" && <Crown className="size-3.5 text-gold" aria-label="Owner" />}
                 </Link>
-                <p className="text-xs text-muted">Joined {formatDate(m.joinedAt, tz)}</p>
+                <p className="text-xs text-muted">
+                  {m.isBot ? null : isOnline(m.lastSeenAt, now) ? (
+                    <span className="text-yes">Online now · </span>
+                  ) : m.lastSeenAt ? (
+                    <>Active {relativeTime(m.lastSeenAt.getTime(), now)} · </>
+                  ) : null}
+                  Joined {formatDate(m.joinedAt, tz)}
+                </p>
               </div>
               {owner && m.id !== user.id && <RemoveMemberButton groupId={groupId} userId={m.id} />}
             </li>
@@ -41,7 +53,7 @@ export default async function MembersPage({ params }: { params: Promise<{ groupI
       <aside className="space-y-6">
         <section className="surface p-5">
           <h2 className="eyebrow mb-3">Invite friends</h2>
-          <p className="mb-4 text-sm text-muted">Anyone with the link can join after signing in with Google. Reset it if it leaks.</p>
+          <p className="mb-4 text-sm text-muted">Anyone with the link can join after signing in. Reset it if it leaks.</p>
           <div className="mb-3 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2.5 font-mono text-sm tracking-wider text-soft">
             /join/{group.inviteCode}
           </div>

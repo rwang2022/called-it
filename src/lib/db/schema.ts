@@ -28,6 +28,8 @@ export const users = sqliteTable(
     nameEdited: integer("name_edited", { mode: "boolean" }).notNull().default(false),
     imageEdited: integer("image_edited", { mode: "boolean" }).notNull().default(false),
     isBot: integer("is_bot", { mode: "boolean" }).notNull().default(false),
+    // Last heartbeat from an open, visible app tab (see src/lib/presence.ts).
+    lastSeenAt: ts("last_seen_at"),
     createdAt: ts("created_at").notNull().default(now),
   },
   (t) => [uniqueIndex("users_username_idx").on(t.username)],
