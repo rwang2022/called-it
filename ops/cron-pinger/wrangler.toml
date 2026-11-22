@@ -1,0 +1,17 @@
+# Cloudflare Worker that calls Called It's /api/cron every 15 minutes, so clock-driven
+# notifications (bet due, Claude's pick revealed, review windows settling) go out promptly.
+# Vercel's Hobby plan only allows a daily cron; this is the free stand-in.
+#
+# Deploy:      npx wrangler@4 deploy                (from this folder)
+# Secret:      npx wrangler@4 secret put CRON_SECRET (must match CRON_SECRET in Vercel)
+# Watch runs:  npx wrangler@4 tail
+name = "called-it-cron"
+main = "index.js"
+compatibility_date = "2026-11-01"
+workers_dev = false
+
+[vars]
+TARGET = "https://calledit.rwang.dev/api/cron"
+
+[triggers]
+crons = ["*/15 * * * *"]
