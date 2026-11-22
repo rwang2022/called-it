@@ -1,13 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Check, LogOut } from "lucide-react";
-import { motion } from "motion/react";
+import { Lock, LogOut } from "lucide-react";
 import { takePosition, withdrawPosition } from "@/lib/actions/bets";
 import { money, parseDollars, signedMoney } from "@/lib/format";
 import { useAction } from "../ui/use-action";
 import { ConfirmButton } from "../ui/confirm-button";
 import { optionColor } from "./palette";
+import { FieldLabel, SidePicker } from "../ui/form-bits";
 
 export type PositionFormBet = {
   id: string;
@@ -49,9 +49,19 @@ export function PositionForm({ bet }: { bet: PositionFormBet }) {
     return Math.floor((amount * others) / mineOn);
   }, [money_, bet.kind, bet.options, optionId, amount, mine]);
 
-  const valid =
-    (bet.kind === "challenge" ? task.trim().length > 0 : Boolean(optionId)) &&
-    (!money_ || !bet.customStakes || (amount >= 100 && amount <= 1_000_000));
+  const sideDone = bet.kind === "challenge" ? task.trim().length > 0 : Boolean(optionId);
+  const stakeDone = !money_ || !bet.customStakes || bet.kind === "challenge" || (amount >= 100 && amount <= 1_000_000);
+  const valid = sideDone && stakeDone;
+  const missing = !sideDone
+    ? bet.kind === "challenge"
+      ? "Describe your side to continue"
+      : bet.kind === "binary"
+        ? "Pick Yes or No to continue"
+        : "Pick an option to continue"
+    : !stakeDone
+      ? "Enter a stake from $1 to $10,000"
+      : null;
+  const pickedLabel = bet.options.find((o) => o.id === optionId)?.label;
 
   const submit = () =>
     exec(
@@ -73,82 +83,90 @@ export function PositionForm({ bet }: { bet: PositionFormBet }) {
     <div className="space-y-5">
       {bet.kind !== "challenge" ? (
         <div>
-          <p className="label">{mine ? "Your pick" : "Pick a side"}</p>
-          <div className={bet.kind === "binary" ? "grid grid-cols-2 gap-2" : "grid gap-2"}>
-            {bet.options.map((o, i) => {
-              const c = optionColor(bet.kind, i);
-              const on = o.id === optionId;
-              const blocked = bet.kind === "binary" && bet.subjectIsViewer && i !== 0;
-              return (
-                <button
-                  key={o.id}
-                  type="button"
-                  disabled={blocked || pending}
-                  onClick={() => setOptionId(o.id)}
-                  title={blocked ? "You can't bet against yourself" : undefined}
-                  className={`relative flex min-h-[52px] items-center justify-between gap-2 rounded-2xl border px-4 text-left font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-35 ${
-                    on ? "scale-[1.01]" : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
-                  }`}
-                  style={on ? { borderColor: c, background: `color-mix(in oklab, ${c} 16%, transparent)`, color: c, boxShadow: `0 8px 30px -14px ${c}` } : undefined}
-                >
-                  <span className="truncate">{o.label}</span>
-                  {on && (
-                    <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} className="grid size-5 shrink-0 place-items-center rounded-full" style={{ background: c }}>
-                      <Check className="size-3 text-ink-950" strokeWidth={3.5} />
-                    </motion.span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+          <FieldLabel n={1} done={sideDone} required>
+            {mine ? "Your pick" : bet.kind === "binary" ? "Pick Yes or No" : "Pick an option"}
+          </FieldLabel>
+          <SidePicker
+            kind={bet.kind}
+            options={bet.options.map((o) => ({ key: o.id, label: o.label }))}
+            value={optionId}
+            onChange={(k) => setOptionId(String(k))}
+            isBlocked={(i) => bet.kind === "binary" && bet.subjectIsViewer && i !== 0}
+            disabled={pending}
+          />
           {bet.subjectIsViewer && bet.kind === "binary" && (
             <p className="hint mt-2">This bet is about you, so you can only back yourself.</p>
           )}
         </div>
       ) : (
         <div>
-          <label className="label" htmlFor="task">
+          <FieldLabel n={1} done={sideDone} required htmlFor="task">
             Your side of the challenge
-          </label>
+          </FieldLabel>
           <input id="task" className="input" maxLength={200} value={task} onChange={(e) => setTask(e.target.value)} placeholder="e.g. 50 unbroken push-ups" />
           <p className="hint mt-1.5">If you don&apos;t complete it and someone else does, you owe {money(bet.stakeCents)}.</p>
         </div>
       )}
 
-      {money_ && bet.customStakes && bet.kind !== "challenge" && (
-        <div>
-          <label className="label" htmlFor="amt">
-            Stake
-          </label>
-          <div className="relative">
-            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted">$</span>
-            <input
-              id="amt"
-              inputMode="decimal"
-              className="input num pl-8 text-lg"
-              value={amountText}
-              onChange={(e) => setAmountText(e.target.value.replace(/[^\d.]/g, ""))}
-            />
-          </div>
-          <div className="mt-2 flex gap-1.5">
-            {QUICK.map((q) => (
-              <button key={q} type="button" onClick={() => setAmountText(String(q / 100))} className="btn btn-ghost btn-sm num flex-1 px-0">
-                {money(q)}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      <div>
+        {money_ && bet.customStakes && bet.kind !== "challenge" ? (
+          <>
+            <FieldLabel n={2} done={stakeDone} required htmlFor="amt">
+              How much?
+            </FieldLabel>
+            <div className="relative">
+              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted">$</span>
+              <input
+                id="amt"
+                inputMode="decimal"
+                className="input num pl-8 text-lg"
+                value={amountText}
+                onChange={(e) => setAmountText(e.target.value.replace(/[^\d.]/g, ""))}
+              />
+            </div>
+            <div className="mt-2 flex gap-1.5">
+              {QUICK.map((q) => (
+                <button key={q} type="button" onClick={() => setAmountText(String(q / 100))} className="btn btn-ghost btn-sm num flex-1 px-0">
+                  {money(q)}
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <>
+            <FieldLabel n={2} done>
+              Stake
+            </FieldLabel>
+            <div className="flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.02] px-4 py-3">
+              <Lock className="size-4 shrink-0 text-muted" />
+              <span className="text-sm text-muted">
+                {!money_ ? (
+                  <>Bragging rights only. No money changes hands.</>
+                ) : (
+                  <>
+                    <span className="num text-base font-semibold text-fg">{money(bet.stakeCents)}</span>{" "}
+                    {bet.kind === "challenge" ? "to whoever succeeds, set by the creator." : "each, set by the creator."}
+                  </>
+                )}
+              </span>
+            </div>
+          </>
+        )}
+      </div>
 
       <div>
-        <div className="mb-1 flex items-baseline justify-between">
-          <label className="label mb-0" htmlFor="conf">
-            {bet.kind === "challenge" ? "Chance you'll pull it off" : "How sure are you?"}
-          </label>
-          <span className="num text-2xl font-semibold" style={{ color: fill }}>
-            {Math.max(minConf, confidence)}%
-          </span>
-        </div>
+        <FieldLabel
+          n={3}
+          done
+          htmlFor="conf"
+          aside={
+            <span className="num text-2xl font-semibold" style={{ color: fill }}>
+              {Math.max(minConf, confidence)}%
+            </span>
+          }
+        >
+          {bet.kind === "challenge" ? "Chance you'll pull it off" : "How sure are you?"}
+        </FieldLabel>
         <input
           id="conf"
           type="range"
@@ -191,7 +209,15 @@ export function PositionForm({ bet }: { bet: PositionFormBet }) {
 
       <div className="flex gap-2">
         <button type="button" onClick={submit} disabled={!valid || pending} className="btn btn-primary btn-lg flex-1">
-          {pending ? "Saving…" : mine ? "Update position" : bet.kind === "challenge" ? "Accept challenge" : "Lock it in"}
+          {pending
+            ? "Saving…"
+            : missing
+              ? missing
+              : mine
+                ? "Update position"
+                : bet.kind === "challenge"
+                  ? "Accept challenge"
+                  : `Lock in ${pickedLabel}${money_ ? ` · ${money(amount)}` : ""}`}
         </button>
         {mine && (
           <ConfirmButton

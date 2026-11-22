@@ -9,6 +9,7 @@ import { firstName, money, parseDollars } from "@/lib/format";
 import { Avatar, ClaudeGlyph } from "../ui/avatar";
 import { CategoryIcon } from "../ui/category";
 import { useAction } from "../ui/use-action";
+import { FieldLabel, SidePicker } from "../ui/form-bits";
 import { optionColor } from "../bet/palette";
 
 type Member = { id: string; name: string; image: string | null };
@@ -108,6 +109,11 @@ export function CreateBetWizard({ me, groups, initialGroupId, claudeOn }: { me: 
     if (!publicTouched) setIsPublic(categoryOf(c).publicByDefault);
   };
 
+  const optionsOk =
+    optionLabels.filter(Boolean).length >= 2 &&
+    !optionLabels.some((o) => !o) &&
+    new Set(optionLabels.map((o) => o.toLowerCase())).size === optionLabels.length;
+
   /* ——— validation per step ——— */
   const problems = useMemo(() => {
     const p: Record<number, string | null> = {};
@@ -128,7 +134,7 @@ export function CreateBetWizard({ me, groups, initialGroupId, claudeOn }: { me: 
     else if (judgeMode === "claude" && !claudeJudgeAllowed) p[3] = "Claude can only judge public events.";
     else p[3] = null;
     if (joinNow || kind === "challenge") {
-      if (kind !== "challenge" && myOption === null) p[4] = "Pick your side (or skip).";
+      if (kind !== "challenge" && myOption === null) p[4] = kind === "binary" ? "Pick Yes or No (or choose Just hosting)." : "Pick an option (or choose Just hosting).";
       else if (stakeMode === "money" && customStakes && kind !== "challenge" && (myAmount < 100 || myAmount > 1_000_000)) p[4] = "Your stake must be between $1 and $10,000.";
       else if (judgeMode === "person" && judgeId === me.id) p[4] = "Judges can't bet.";
       else p[4] = null;
@@ -238,6 +244,9 @@ export function CreateBetWizard({ me, groups, initialGroupId, claudeOn }: { me: 
                   </div>
                 </div>
               )}
+              <FieldLabel done={Boolean(kind)} required>
+                Type of bet
+              </FieldLabel>
               <div className="grid gap-3">
                 <KindCard on={kind === "binary"} onClick={() => setKind("binary")} icon={<ToggleLeft className="size-6" />} hue={150} title="Yes or no" example="“Will Sam do a pull-up by Dec 31?”" />
                 <KindCard on={kind === "multi"} onClick={() => setKind("multi")} icon={<ListChecks className="size-6" />} hue={210} title="Multiple choice" example="“Who wins the election?” · “Which film takes Best Picture?”" />
@@ -272,9 +281,9 @@ export function CreateBetWizard({ me, groups, initialGroupId, claudeOn }: { me: 
                   </div>
                 </div>
                 <div>
-                  <label className="label" htmlFor="title">
+                  <FieldLabel htmlFor="title" done={title.trim().length >= 5} required>
                     {kind === "challenge" ? "Name it" : "Question"}
-                  </label>
+                  </FieldLabel>
                   <textarea
                     id="title"
                     rows={2}
@@ -289,7 +298,9 @@ export function CreateBetWizard({ me, groups, initialGroupId, claudeOn }: { me: 
 
                 {kind === "multi" && (
                   <div>
-                    <p className="label">Options</p>
+                    <FieldLabel done={optionsOk} required>
+                      Options
+                    </FieldLabel>
                     <div className="space-y-2">
                       {options.map((o, i) => (
                         <div key={i} className="flex items-center gap-2">
@@ -321,9 +332,9 @@ export function CreateBetWizard({ me, groups, initialGroupId, claudeOn }: { me: 
                 {kind === "challenge" && (
                   <div className="space-y-4">
                     <div>
-                      <label className="label" htmlFor="mytask">
+                      <FieldLabel htmlFor="mytask" done={myTask.trim().length > 0} required>
                         Your task
-                      </label>
+                      </FieldLabel>
                       <input id="mytask" className="input" maxLength={200} value={myTask} onChange={(e) => setMyTask(e.target.value)} placeholder="Run a 5K in under 25:00" />
                     </div>
                     <div>
@@ -410,9 +421,9 @@ export function CreateBetWizard({ me, groups, initialGroupId, claudeOn }: { me: 
                       </div>
                     )}
                     <div>
-                      <label className="label" htmlFor="stake">
+                      <FieldLabel htmlFor="stake" done={!problems[2]} required>
                         {kind === "challenge" ? "Whoever fails pays" : customStakes ? "Suggested stake" : "Everyone puts in"}
-                      </label>
+                      </FieldLabel>
                       <div className="relative">
                         <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-xl text-muted">$</span>
                         <input
@@ -508,24 +519,17 @@ export function CreateBetWizard({ me, groups, initialGroupId, claudeOn }: { me: 
                 {(joinNow || kind === "challenge") && (
                   <>
                     {kind !== "challenge" && (
-                      <div className={kind === "binary" ? "grid grid-cols-2 gap-2" : "grid gap-2"}>
-                        {optionLabels.map((o, i) => {
-                          const c = optionColor(kind!, i);
-                          const on = myOption === i;
-                          const blocked = kind === "binary" && subjectIsMe && i !== 0;
-                          return (
-                            <button
-                              key={i}
-                              disabled={blocked}
-                              onClick={() => setMyOption(i)}
-                              className={`flex h-14 items-center justify-between rounded-2xl border px-4 font-semibold transition-all disabled:opacity-30 ${on ? "" : "border-white/10 bg-white/[0.03]"}`}
-                              style={on ? { borderColor: c, color: c, background: `color-mix(in oklab, ${c} 15%, transparent)` } : undefined}
-                            >
-                              <span className="truncate">{o}</span>
-                              {on && <Check className="size-4" strokeWidth={3} />}
-                            </button>
-                          );
-                        })}
+                      <div>
+                        <FieldLabel done={myOption !== null} required>
+                          {kind === "binary" ? "Your side: Yes or No?" : "Your pick"}
+                        </FieldLabel>
+                        <SidePicker
+                          kind={kind!}
+                          options={optionLabels.map((o, i) => ({ key: i, label: o }))}
+                          value={myOption}
+                          onChange={(k) => setMyOption(Number(k))}
+                          isBlocked={(i) => kind === "binary" && subjectIsMe && i !== 0}
+                        />
                       </div>
                     )}
                     {kind === "challenge" && (
@@ -536,9 +540,9 @@ export function CreateBetWizard({ me, groups, initialGroupId, claudeOn }: { me: 
                     )}
                     {stakeMode === "money" && customStakes && kind !== "challenge" && (
                       <div>
-                        <label className="label" htmlFor="myamt">
-                          Your stake
-                        </label>
+                        <FieldLabel htmlFor="myamt" done={myAmount >= 100 && myAmount <= 1_000_000} required>
+                          How much are you putting in?
+                        </FieldLabel>
                         <div className="relative">
                           <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted">$</span>
                           <input id="myamt" inputMode="decimal" className="input num pl-8 text-lg" value={myAmountText} onChange={(e) => setMyAmountText(e.target.value.replace(/[^\d.]/g, ""))} />
@@ -588,13 +592,13 @@ export function CreateBetWizard({ me, groups, initialGroupId, claudeOn }: { me: 
 
       <div className="sticky bottom-[calc(76px+var(--safe-bottom))] z-30 mt-8 lg:bottom-6">
         <div className="rounded-2xl border border-white/[0.08] bg-ink-900/85 p-2 shadow-2xl shadow-black/60 backdrop-blur-xl">
-          {problems[step] && step > 0 && <p className="px-2 pb-2 pt-1 text-center text-xs text-muted">{problems[step]}</p>}
           <button
             className="btn btn-primary btn-lg w-full"
             disabled={!canNext || pending}
             onClick={() => (last ? submit() : go(step + 1))}
           >
-            {pending ? "Posting…" : last ? "Post bet" : "Continue"} {!pending && !last && <ArrowRight className="size-4" />}
+            {pending ? "Posting…" : problems[step] ? problems[step]!.replace(/\.$/, "") : last ? "Post bet" : "Continue"}{" "}
+            {!pending && !last && !problems[step] && <ArrowRight className="size-4" />}
           </button>
         </div>
       </div>
