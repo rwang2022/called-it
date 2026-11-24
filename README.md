@@ -4,7 +4,7 @@ Bets and predictions between friends, with honest track records, fair judging, a
 
 - **Any kind of bet:** yes/no, multiple choice, or head-to-head challenges ("you do X, I do Y, whoever can't pays"), with any number of people on each side.
 - **Fair by design:** neutral judges, a 24h review window, majority-vote disputes, no betting against yourself, and terms that can't change after posting.
-- **Scored like forecasters:** every pick carries a confidence. Leaderboards show forecast skill (from the Brier score), calibration curves, category breakdowns, head-to-heads, streaks, and judge reputations.
+- **Scored like forecasters:** every pick carries a confidence. Leaderboards rank by edge: how much better your Brier score was than everyone else's on the same bets, so calling sure things or farming friends earns nothing. Only rated bets count (no solo bets, no unconfirmed self-judging). Also calibration curves, category breakdowns, head-to-heads, streaks, and judge reputations.
 - **Claude plays:** on public events Claude researches the web and locks in a sealed pick (revealed when betting closes). It can also act as the oracle and call the result, with sources.
 - **Settle up:** money bets roll into a per-group ledger that computes the fewest payments needed. The receiver confirms every payment. No money ever moves through the app.
 - **Notifications:** Web Push tells people when something needs them (a call to confirm, a dispute vote, a challenge, a payment to confirm, a bet they judge coming due) and when their bets settle or Claude's pick is revealed.
@@ -116,11 +116,12 @@ Each friend turns notifications on per device, from their profile page. On iPhon
 
 The full version is in the app at `/how-it-works`. In short:
 
-- **Pari-mutuel payouts.** Winners split the losing side's pot in proportion to their stakes. With no counterparty, stakes are refunded but picks still count. Cents are split with largest-remainder rounding, so totals always balance exactly.
+- **Pari-mutuel payouts, capped at fair odds.** Winners split the losing side's pot in proportion to their stakes, but nobody wins more than their stake × (options − 1): even money on yes/no. So a $1 bet against someone's $10 wins $1, and unclaimed losing money is refunded pro-rata. With no counterparty, stakes are refunded. Cents are split with largest-remainder rounding, so totals always balance exactly.
 - **Challenges.** Each person who fails pays their stake, split among those who succeed. If everyone succeeds or everyone fails, nobody pays. Opponents must accept; nobody is signed up without consent.
 - **Lifecycle.** Open → betting closes (positions lock) → result due → judge calls it → 24h review (everyone confirms = instant settle; no dispute = settles at window end) → or a dispute opens a 48h vote among participants. Uphold vs void: a strict majority ends it early, and ties void. A judge can call early, which closes betting.
 - **Conflicts of interest.** Neutral judges can't bet. The subject of a bet can't judge it and can only back themselves. Claude's pick stays on the server, never sent to browsers, until betting closes, so nobody can copy it.
-- **Scoring.** Brier score per graded pick, shown as forecast skill = 1 − Brier/0.25 (0 = coin flip). Under 3 graded calls is "provisional". Void bets don't count. Challenges are tracked separately as follow-through.
+- **Scoring: edge over the room.** Each pick's Brier score is compared with everyone else's on the same bet (Claude included): edge = their average Brier − yours. Sure things earn ~0, and points only move between the people on a bet, so friends can't farm each other. Under 3 rated calls is "provisional". Void bets don't count. Challenges are tracked separately as follow-through.
+- **Rated vs. unrated.** A settled bet counts toward scores only if at least two people forecast it, betting stayed open for an hour (early calls included), and a judge with a stake was confirmed by someone on another side or upheld by a vote. Unrated bets still settle money. Logic: `src/lib/engine/rating.ts`.
 - **Ledger.** Balances = settlements + confirmed payments. "I paid" needs the receiver's confirmation; "they paid me" is confirmed immediately.
 
 ## Notifications

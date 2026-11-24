@@ -1,3 +1,4 @@
+import { edgePoints } from "@/lib/engine/rating";
 import Link from "next/link";
 import { Crown, Flame, Gavel, Info } from "lucide-react";
 import { groupMemberList, requireMember } from "@/lib/data/common";
@@ -15,9 +16,9 @@ import { requestNow } from "@/lib/now";
 export const metadata = { title: "Leaderboard" };
 
 const METRICS = [
-  { id: "skill", label: "Forecasting", blurb: "Forecast skill rewards being right *and* honest about your confidence (Brier score vs. a coin flip). 0 = coin flip, +100 = perfect." },
+  { id: "skill", label: "Forecasting", blurb: "Edge: how much better your forecasts were than everyone else's on the same bets (Brier score, confidence included). Calling sure things earns nothing; knowing something the room didn't does. Only rated bets count." },
   { id: "profit", label: "Profit", blurb: "Net winnings across money bets. Claude plays for free, so it isn't ranked here." },
-  { id: "winrate", label: "Win rate", blurb: "Share of graded calls that came true, ignoring confidence and stakes." },
+  { id: "winrate", label: "Win rate", blurb: "Share of rated calls that came true, ignoring confidence and stakes." },
   { id: "judges", label: "Judges", blurb: "Who makes clean, timely calls. Overturned = a dispute vote voided their call." },
 ] as const;
 const RANGES = [
@@ -122,7 +123,7 @@ export default async function LeaderboardPage({ params, searchParams }: Props) {
               <span>#</span>
               <span>Player</span>
               <span className="text-right">Record</span>
-              <span className="text-right">Skill</span>
+              <span className="text-right">Edge</span>
               <span className="text-right">Net</span>
               <span className="text-right">Trend</span>
             </div>
@@ -145,7 +146,7 @@ export default async function LeaderboardPage({ params, searchParams }: Props) {
                           {r.streak >= 3 && <Flame className="size-4 text-gold" aria-label={`${r.streak}-win streak`} />}
                         </span>
                         <span className="block text-xs text-muted">
-                          {r.provisional ? `Provisional · ${r.n}/${MIN_GRADED} calls` : `${r.n} graded calls`}
+                          {r.provisional ? `Provisional · ${r.n}/${MIN_GRADED} rated calls` : `${r.n} rated calls`}
                           {r.followThrough.n > 0 && ` · ${r.followThrough.passed}/${r.followThrough.n} challenges`}
                         </span>
                       </span>
@@ -171,7 +172,7 @@ export default async function LeaderboardPage({ params, searchParams }: Props) {
   );
 }
 
-const skill = (r: LeaderRow) => (r.skill === null ? "—" : `${r.skill > 0 ? "+" : ""}${Math.round(r.skill * 100)}`);
+const skill = (r: LeaderRow) => edgePoints(r.edge);
 function headline(r: LeaderRow, by: string) {
   if (by === "profit") return r.user.isBot ? "—" : signedMoney(r.netCents);
   if (by === "winrate") return r.n ? pct(r.winRate) : "—";

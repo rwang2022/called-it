@@ -36,7 +36,8 @@ export function PositionForm({ bet }: { bet: PositionFormBet }) {
   const amount = !money_ ? 0 : bet.customStakes ? (parseDollars(amountText) ?? 0) : bet.stakeCents;
   const minConf = bet.kind === "binary" ? 50 : 1;
 
-  // Estimated profit if this pick wins, at the current pool (pari-mutuel).
+  // Estimated profit if this pick wins, at the current pool: a pro-rata share of
+  // the losing pot, capped at fair odds (see maxWinMultiple in engine/payout.ts).
   const estimate = useMemo(() => {
     if (!money_ || bet.kind === "challenge" || !optionId) return null;
     const pools = bet.options.map((o) => ({
@@ -46,7 +47,8 @@ export function PositionForm({ bet }: { bet: PositionFormBet }) {
     const mineOn = pools.find((p) => p.id === optionId)!.pool + amount;
     const others = pools.filter((p) => p.id !== optionId).reduce((a, p) => a + p.pool, 0);
     if (mineOn <= 0) return null;
-    return Math.floor((amount * others) / mineOn);
+    const matched = Math.min(others, mineOn * Math.max(1, bet.options.length - 1));
+    return Math.floor((amount * matched) / mineOn);
   }, [money_, bet.kind, bet.options, optionId, amount, mine]);
 
   const sideDone = bet.kind === "challenge" ? task.trim().length > 0 : Boolean(optionId);
@@ -231,7 +233,7 @@ export function PositionForm({ bet }: { bet: PositionFormBet }) {
         )}
       </div>
       {money_ && bet.customStakes && bet.kind !== "challenge" && (
-        <p className="hint text-center">Winners split the losers&apos; pot in proportion to their stakes.</p>
+        <p className="hint text-center">Winners split the losers&apos; pot in proportion to their stakes, up to fair odds.</p>
       )}
     </div>
   );

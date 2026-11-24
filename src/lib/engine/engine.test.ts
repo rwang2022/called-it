@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { computePayouts, crowdForecast, distribute, poolStats, type PayoutPosition } from "./payout";
 import { computeBalances, simplifyDebts } from "./ledger";
 import { brier, rankBy, statsFor, type Graded } from "./scoring";
+import { edgesFor, rateBet, type RatingInput } from "./rating";
 import {
   canCancel,
   canJudge,
@@ -14,7 +15,9 @@ import {
   reviewersOf,
   subjectMayPick,
   validateOutcome,
+  CLAUDE_ID,
   DAY,
+  HOUR,
   type RuleBet,
 } from "./rules";
 
@@ -48,14 +51,27 @@ describe("distribute", () => {
 });
 
 describe("computePayouts — pari-mutuel", () => {
-  it("1 vs 2: lone winner takes both stakes", () => {
+  it("1 vs 2 on yes/no: the lone winner wins at most their own stake; the rest is refunded", () => {
     const r = computePayouts("binary", [pos("a", "sam", "yes", 2000), pos("b", "alex", "no", 2000), pos("c", "jo", "no", 2000)], {
       type: "option",
       optionId: "yes",
     });
-    expect(r.find((x) => x.userId === "sam")!.netCents).toBe(4000);
-    expect(r.find((x) => x.userId === "alex")!.netCents).toBe(-2000);
+    expect(r.find((x) => x.userId === "sam")!.netCents).toBe(2000);
+    expect(r.find((x) => x.userId === "alex")!.netCents).toBe(-1000);
+    expect(r.find((x) => x.userId === "jo")!.netCents).toBe(-1000);
     expect(sum(r)).toBe(0);
+  });
+  it("a $1 bet can't take someone's whole $10", () => {
+    const r = computePayouts("binary", [pos("a", "big", "yes", 1000), pos("b", "sniper", "no", 100)], { type: "option", optionId: "no" });
+    expect(r.find((x) => x.userId === "sniper")!.netCents).toBe(100);
+    expect(r.find((x) => x.userId === "big")!.netCents).toBe(-100);
+  });
+  it("multiple choice: an underdog can win up to (options − 1)× their stake", () => {
+    const ps = [pos("a", "dog", "x", 100), pos("b", "u2", "y", 1000), pos("c", "u3", "z", 1000), pos("d", "u4", "w", 1000), pos("e", "u5", "v", 1000)];
+    const r = computePayouts("multi", ps, { type: "option", optionId: "x" }, 5);
+    expect(r.find((x) => x.userId === "dog")!.netCents).toBe(400);
+    expect(sum(r)).toBe(0);
+    for (const x of r) expect(x.netCents).toBeGreaterThanOrEqual(-x.stakedCents);
   });
   it("winners split the losing pool pro-rata", () => {
     const r = computePayouts("binary", [pos("a", "sam", "yes", 1000), pos("b", "alex", "no", 1000), pos("c", "jo", "no", 3000)], {
@@ -135,7 +151,8 @@ describe("pool stats & crowd", () => {
         { optionId: "no", amountCents: 3000 },
       ],
     );
-    expect(s[0]).toMatchObject({ share: 0.25, multiplier: 4 });
+    // Yes/no caps the payout at even money: $1 returns at most $2.
+    expect(s[0]).toMatchObject({ share: 0.25, multiplier: 2 });
     expect(s[1].multiplier).toBeCloseTo(4 / 3);
   });
   it("crowd forecast averages beliefs", () => {
@@ -200,6 +217,8 @@ describe("scoring", () => {
     money: true,
     settledAt: i,
     sideShare: 0.5,
+    rated: true,
+    edge: null,
     ...extra,
   });
   it("brier is 0 for confident hits and 1 for confident misses (clamped)", () => {
@@ -214,6 +233,18 @@ describe("scoring", () => {
     expect(s.bestStreak).toBe(3);
     expect(s.roi).toBeCloseTo(4 / 6);
     expect(s.skill).toBeGreaterThan(0);
+  });
+  it("only rated calls count toward the record; money counts everything", () => {
+    const s = statsFor("u", [g("u", 90, true, 1), g("u", 90, true, 2, { rated: false }), g("u", 90, false, 3, { rated: false })]);
+    expect(s.n).toBe(1);
+    expect(s.unrated).toBe(2);
+    expect(s.wins).toBe(1);
+    expect(s.netCents).toBe(100);
+  });
+  it("ranks by edge, provisional forecasters last", () => {
+    const e = (u: string, edge: number, i: number) => g(u, 70, true, i, { edge });
+    const graded = [e("a", 0.02, 1), e("a", 0.02, 2), e("a", 0.02, 3), e("b", 0.1, 4), e("b", 0.1, 5), e("b", 0.1, 6)];
+    expect(rankBy("skill", [statsFor("a", graded), statsFor("b", graded)])[0].userId).toBe("b");
   });
   it("ranks provisional forecasters last", () => {
     const graded = [g("pro", 60, true, 1), g("pro", 60, true, 2), g("pro", 60, false, 3), g("lucky", 99, true, 4)];
@@ -323,5 +354,65 @@ describe("rules", () => {
     expect(validateOutcome("challenge", { type: "challenge", results: { p1: "pass" } }, [], ["p1", "p2"]).ok).toBe(false);
     expect(validateOutcome("challenge", { type: "challenge", results: { p1: "pass", p2: "fail" } }, [], ["p1", "p2"]).ok).toBe(true);
     expect(validateOutcome("multi", { type: "void" }, [], []).ok).toBe(true);
+  });
+});
+
+describe("rating — what counts toward scores", () => {
+  const t0 = Date.UTC(2026, 10, 1);
+  const base = (over: Partial<RatingInput> = {}): RatingInput => ({
+    createdAt: t0,
+    closesAt: t0 + 2 * HOUR,
+    proposedAt: t0 + 3 * HOUR,
+    proposedById: "judge",
+    settledVia: "window",
+    forecasts: [
+      { userId: "a", optionId: "yes" },
+      { userId: "b", optionId: "no" },
+    ],
+    confirmedBy: [],
+    ...over,
+  });
+  it("neutral judge, two forecasters, open 2h: rated", () => {
+    expect(rateBet(base()).rated).toBe(true);
+  });
+  it("a solo bet isn't rated", () => {
+    expect(rateBet(base({ forecasts: [{ userId: "a", optionId: "yes" }] })).rated).toBe(false);
+  });
+  it("closing within an hour isn't rated, and neither is an early call", () => {
+    expect(rateBet(base({ closesAt: t0 + 5 * 60_000 })).rated).toBe(false);
+    expect(rateBet(base({ proposedAt: t0 + 10 * 60_000 })).rated).toBe(false);
+  });
+  it("a judge with a stake needs an opponent's confirmation or a vote", () => {
+    const self = { proposedById: "a" };
+    expect(rateBet(base(self)).rated).toBe(false);
+    expect(rateBet(base({ ...self, confirmedBy: ["b"] })).rated).toBe(true);
+    expect(rateBet(base({ ...self, settledVia: "vote" })).rated).toBe(true);
+    // An ally on the same side confirming doesn't count.
+    const ally = { forecasts: [{ userId: "a", optionId: "yes" }, { userId: "c", optionId: "yes" }, { userId: "b", optionId: "no" }] };
+    expect(rateBet(base({ ...self, ...ally, confirmedBy: ["c"] })).rated).toBe(false);
+  });
+  it("Claude judging its own public bet is treated as neutral", () => {
+    expect(rateBet(base({ proposedById: CLAUDE_ID, forecasts: [{ userId: CLAUDE_ID, optionId: "yes" }, { userId: "b", optionId: "no" }] })).rated).toBe(true);
+  });
+});
+
+describe("edge — scored against the room", () => {
+  it("everyone calling a sure thing earns ~0", () => {
+    const e = edgesFor([
+      { userId: "a", brier: brier(99, true) },
+      { userId: "b", brier: brier(99, true) },
+    ]);
+    expect(e.get("a")).toBeCloseTo(0);
+  });
+  it("is zero-sum between two people", () => {
+    const e = edgesFor([
+      { userId: "a", brier: brier(80, true) },
+      { userId: "b", brier: brier(30, true) },
+    ]);
+    expect(e.get("a")! + e.get("b")!).toBeCloseTo(0);
+    expect(e.get("a")!).toBeGreaterThan(0);
+  });
+  it("needs at least two forecasters", () => {
+    expect(edgesFor([{ userId: "a", brier: 0.1 }]).size).toBe(0);
   });
 });

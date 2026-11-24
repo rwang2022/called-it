@@ -46,16 +46,29 @@ const stable = (ps: PayoutPosition[]) =>
   [...ps].sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id));
 
 /**
+ * The most a winner can take, as a multiple of their own stake: what a fair bet
+ * at even odds across the options would pay. 1× on yes/no, 4× on a 5-option bet.
+ * Without this, $1 against someone's $10 would win all $10.
+ */
+export const maxWinMultiple = (optionCount: number) => Math.max(1, optionCount - 1);
+
+/**
  * Pari-mutuel settlement for yes/no and multiple-choice bets, and the
  * "whoever fails pays whoever succeeds" rule for challenges.
  *
+ * Winners split the losing pot in proportion to their stakes, but each can win
+ * at most `maxWinMultiple` × their stake; losing money nobody could claim is
+ * refunded, pro-rata, to the people who staked it.
+ *
  * Invariants (tested): nets sum to zero; nobody loses more than they staked;
- * zero-stake positions (Claude, bragging-rights bets) never move money.
+ * nobody wins more than the cap; zero-stake positions (Claude, bragging-rights
+ * bets) never move money.
  */
 export function computePayouts(
   kind: BetKind,
   positions: PayoutPosition[],
   outcome: Outcome,
+  optionCount = 2,
 ): PayoutResult[] {
   const ps = stable(positions);
   const base = (p: PayoutPosition, result: PayoutResult["result"], net = 0): PayoutResult => ({
@@ -98,12 +111,16 @@ export function computePayouts(
     return ps.map((p) => base(p, p.optionId === outcome.optionId ? "win" : "loss"));
   }
 
-  const shares = distribute(losePool, winners.map((p) => p.amountCents));
-  const winnings = new Map(winners.map((p, i) => [p.id, shares[i]]));
+  // Only as much losing money changes hands as the winners could claim between them.
+  const matched = Math.min(losePool, winPool * maxWinMultiple(optionCount));
+  const won = distribute(matched, winners.map((p) => p.amountCents));
+  const lost = distribute(matched, losers.map((p) => p.amountCents));
+  const winnings = new Map(winners.map((p, i) => [p.id, won[i]]));
+  const losses = new Map(losers.map((p, i) => [p.id, lost[i]]));
   return ps.map((p) =>
     p.optionId === outcome.optionId
       ? base(p, "win", winnings.get(p.id)!)
-      : base(p, "loss", -p.amountCents),
+      : base(p, "loss", -losses.get(p.id)!),
   );
 }
 
@@ -113,6 +130,7 @@ export function poolStats(
   positions: { optionId: string | null; amountCents: number }[],
 ) {
   const total = positions.reduce((a, p) => a + p.amountCents, 0);
+  const cap = maxWinMultiple(options.length);
   return options.map((o) => {
     const backers = positions.filter((p) => p.optionId === o.id);
     const pool = backers.reduce((a, p) => a + p.amountCents, 0);
@@ -121,8 +139,8 @@ export function poolStats(
       pool,
       count: backers.length,
       share: total > 0 ? pool / total : backers.length / Math.max(1, positions.length),
-      /** Gross return per $1 staked (includes the stake). null when nobody is on it yet. */
-      multiplier: pool > 0 ? total / pool : null,
+      /** Gross return per $1 staked (includes the stake, capped at fair odds). null when nobody is on it yet. */
+      multiplier: pool > 0 ? 1 + Math.min((total - pool) / pool, cap) : null,
     };
   });
 }

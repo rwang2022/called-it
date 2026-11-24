@@ -22,6 +22,7 @@ export async function settleBet(betId: string, outcome: Outcome, via: Via): Prom
     const bet = await tx.select().from(bets).where(eq(bets.id, betId)).get();
     if (!bet || bet.status === "settled" || bet.status === "cancelled") return false;
     const ps = await tx.select().from(positions).where(eq(positions.betId, betId));
+    const optionCount = (await tx.select({ id: betOptions.id }).from(betOptions).where(eq(betOptions.betId, betId))).length;
     const results = computePayouts(
       bet.kind,
       ps.map((p) => ({
@@ -32,6 +33,7 @@ export async function settleBet(betId: string, outcome: Outcome, via: Via): Prom
         createdAt: p.createdAt.getTime(),
       })),
       outcome,
+      optionCount,
     );
     const now = new Date();
     const claimed = await tx

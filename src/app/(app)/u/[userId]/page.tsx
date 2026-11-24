@@ -1,3 +1,4 @@
+import { edgePoints } from "@/lib/engine/rating";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
@@ -89,13 +90,13 @@ export default async function ProfilePage({ params, searchParams }: Props) {
           <p className="mt-2 text-sm text-muted">
             {isBot
               ? "Researches public events and locks in sealed picks. Plays for bragging rights only."
-              : `${s.n} graded ${s.n === 1 ? "call" : "calls"}${s.provisional ? " · provisional" : ""}`}
+              : `${s.n} rated ${s.n === 1 ? "call" : "calls"}${s.provisional ? " · provisional" : ""}${s.unrated ? ` · ${s.unrated} unrated` : ""}`}
           </p>
         </div>
       </header>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Tile label="Forecast skill" value={s.skill === null ? "—" : `${s.skill > 0 ? "+" : ""}${Math.round(s.skill * 100)}`} sub={s.brier === null ? "Brier —" : `Brier ${s.brier.toFixed(3)}`} icon={<Target className="size-4" />} />
+        <Tile label="Edge" value={edgePoints(s.edge)} sub={s.edge === null ? "no rated calls yet" : `pts vs the room · Brier ${s.brier!.toFixed(3)}`} icon={<Target className="size-4" />} />
         <Tile label="Record" value={s.n ? `${s.wins}–${s.losses}` : "—"} sub={s.n ? `${pct(s.winRate)} hit rate` : "no calls yet"} icon={<Zap className="size-4" />} />
         {!isBot ? (
           <Tile
@@ -142,7 +143,7 @@ export default async function ProfilePage({ params, searchParams }: Props) {
                 label: categoryOf(c.category).label,
                 value: c.winRate,
                 n: c.n,
-                detail: `${c.n} ${c.n === 1 ? "call" : "calls"}${c.skill !== null ? ` · skill ${c.skill > 0 ? "+" : ""}${Math.round(c.skill * 100)}` : ""}`,
+                detail: `${c.n} ${c.n === 1 ? "call" : "calls"}${c.edge !== null ? ` · edge ${edgePoints(c.edge)}` : ""}`,
               }))}
             />
           </section>

@@ -1,3 +1,4 @@
+import { edgePoints } from "@/lib/engine/rating";
 import Link from "next/link";
 import { Flame, Plus, Users } from "lucide-react";
 import { requireUser } from "@/lib/auth/current";
@@ -81,7 +82,7 @@ export default async function Home() {
               value={s.stakedCents ? signedMoney(s.netCents) : "—"}
               tone={s.netCents > 0 ? "yes" : s.netCents < 0 ? "no" : undefined}
             />
-            <Stat label="Forecast skill" value={s.skill === null ? "—" : `${s.skill > 0 ? "+" : ""}${Math.round(s.skill * 100)}`} hint={s.provisional ? "provisional" : undefined} />
+            <Stat label="Edge" value={edgePoints(s.edge)} hint={s.provisional ? "provisional" : "vs the room"} />
             <Stat
               label="Streak"
               value={s.streak === 0 ? "—" : `${Math.abs(s.streak)}${s.streak > 0 ? "W" : "L"}`}

@@ -11,6 +11,7 @@ import { CategoryIcon } from "../ui/category";
 import { useAction } from "../ui/use-action";
 import { FieldLabel, SidePicker } from "../ui/form-bits";
 import { optionColor } from "../bet/palette";
+import { MIN_OPEN_MS } from "@/lib/engine/rating";
 
 type Member = { id: string; name: string; image: string | null };
 type G = { id: string; name: string; hue: number; members: Member[] };
@@ -416,7 +417,7 @@ export function CreateBetWizard({ me, groups, initialGroupId, claudeOn }: { me: 
                   <>
                     {kind !== "challenge" && (
                       <div className="grid grid-cols-2 gap-3">
-                        <Choice on={customStakes} onClick={() => setCustomStakes(true)} title="Pick your own" sub="Bet what you like. Winners split the pot pro-rata." />
+                        <Choice on={customStakes} onClick={() => setCustomStakes(true)} title="Pick your own" sub="Bet what you like. Winners split the pot, up to fair odds." />
                         <Choice on={!customStakes} onClick={() => setCustomStakes(false)} title="Same for everyone" sub="Everyone puts in the same amount." />
                       </div>
                     )}
@@ -481,6 +482,11 @@ export function CreateBetWizard({ me, groups, initialGroupId, claudeOn }: { me: 
                   presets={[...presetsClose(now).filter((p) => p.at <= resolvesAt), { label: "When result is due", at: resolvesAt }]}
                   onChange={setClosesAt}
                 />
+                {closesAt - now < MIN_OPEN_MS && (
+                  <p className="-mt-3 rounded-xl border border-gold/30 bg-gold/10 px-3 py-2 text-xs text-[#fde68a]">
+                    Betting closes in under an hour, so this one will be unrated: fine for fun, but it won&apos;t count toward anyone&apos;s forecasting score.
+                  </p>
+                )}
                 <div>
                   <p className="label">Who judges the outcome?</p>
                   <div className="grid gap-2">

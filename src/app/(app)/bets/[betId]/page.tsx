@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Ban, ExternalLink, Gavel, Globe, Lock, Scale, Sparkles, Swords, Trophy, UserRound } from "lucide-react";
+import { ArrowLeft, Ban, BadgeCheck, CircleSlash, ExternalLink, Gavel, Globe, Lock, Scale, Sparkles, Swords, Trophy, UserRound } from "lucide-react";
+import { betRating } from "@/lib/data/stats";
 import { requireUser } from "@/lib/auth/current";
 import { membership } from "@/lib/data/common";
 import { betDetail, groupOf, type BetVM, type PositionVM } from "@/lib/data/bets";
@@ -55,6 +56,7 @@ export default async function BetPage({ params, searchParams }: Props) {
   const { bet, raw, tally } = d;
   const now = requestNow();
   const tz = await viewerTimeZone();
+  const rating = await betRating(betId);
 
   const humanPositions = bet.positions.filter((p) => !p.user.isBot);
   const canTake = canTakePosition(raw, user.id, now).ok;
@@ -125,6 +127,16 @@ export default async function BetPage({ params, searchParams }: Props) {
               <Globe className="size-3.5" /> Public event
             </span>
           )}
+          {rating &&
+            (rating.rated ? (
+              <span className="chip border-yes/30 bg-yes/10 text-yes" title="This bet counts toward everyone's forecasting scores.">
+                <BadgeCheck className="size-3.5" /> Rated
+              </span>
+            ) : (
+              <span className="chip text-muted" title={`${rating.reason} Money still settled as normal.`}>
+                <CircleSlash className="size-3.5" /> Unrated
+              </span>
+            ))}
           <span className="chip">{bet.stakeMode === "money" ? (bet.kind === "challenge" ? `${money(bet.stakeCents)} stake` : bet.customStakes ? "Pick your stake" : `${money(bet.stakeCents)} each`) : "Bragging rights"}</span>
         </div>
         <h1 className="display text-[2.35rem] leading-[1.02] sm:text-[3.4rem]">{bet.title}</h1>
@@ -136,6 +148,14 @@ export default async function BetPage({ params, searchParams }: Props) {
           )}
           {bet.subject && <Person label="About" user={bet.subject} icon={<UserRound className="size-3.5" />} />}
         </div>
+        {rating && !rating.rated && (
+          <p className="mt-4 flex max-w-3xl items-start gap-2 text-sm text-muted">
+            <CircleSlash className="mt-0.5 size-4 shrink-0" />
+            <span>
+              Doesn&apos;t count toward forecasting scores: {rating.reason.charAt(0).toLowerCase() + rating.reason.slice(1)} Money settled as normal.
+            </span>
+          </p>
+        )}
       </header>
 
       {/* One copy of every panel. On mobile the two columns dissolve (display: contents)
@@ -266,8 +286,8 @@ function Market({ bet }: { bet: BetVM }) {
       </div>
       {money_ && (
         <p className="hint mt-4">
-          Pari-mutuel: winners split the losing side&apos;s pot in proportion to their stakes. The × shows what $1 on that
-          side returns if it wins, at current stakes.
+          Winners split the losing side&apos;s pot in proportion to their stakes, capped at fair odds (1× your stake on yes/no, up to
+          options − 1× on multiple choice). The × shows what $1 on that side returns if it wins, at current stakes.
         </p>
       )}
     </section>

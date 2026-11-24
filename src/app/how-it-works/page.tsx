@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Ban, Gavel, Lock, Scale, Swords, Target, Vote, Wallet } from "lucide-react";
+import { BadgeCheck, Ban, Gavel, Lock, Scale, Swords, Target, Vote, Wallet } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { ClaudeGlyph } from "@/components/ui/avatar";
 import { APP_NAME } from "@/lib/brand";
@@ -9,12 +9,13 @@ export const metadata = { title: "How it works", description: `The rules of ${AP
 const RULES: { icon: React.ReactNode; title: string; body: React.ReactNode }[] = [
   {
     icon: <Wallet className="size-5" />,
-    title: "Payouts are pari-mutuel",
+    title: "Payouts: split the pot, at fair odds",
     body: (
       <>
-        Everyone on the winning side splits the losing side&apos;s pot in proportion to what they staked. If you put in $20 of a $40
-        winning pool, you get half the losers&apos; money. If nobody took the other side, everyone gets their stake back — but your pick
-        still counts for your record.
+        Everyone on the winning side splits the losing side&apos;s pot in proportion to what they staked, but nobody can win more than
+        fair odds allow: your own stake on a yes/no bet, or up to (options − 1)× your stake on multiple choice. So $1 against
+        someone&apos;s $10 wins $1, not $10, and the losing money nobody could claim goes back to whoever staked it. If nobody took the
+        other side, everyone gets their stake back.
       </>
     ),
   },
@@ -74,9 +75,22 @@ const RULES: { icon: React.ReactNode; title: string; body: React.ReactNode }[] =
     title: "Scored like forecasters",
     body: (
       <>
-        Every pick carries your confidence. We grade it with the Brier score — the squared gap between your confidence and what happened —
-        and show it as <b>forecast skill</b>: 0 is a coin flip, +100 is perfect, negative is worse than guessing. Saying 90% and being right
-        beats saying 55% and being right; saying 90% and being wrong costs you a lot. Fewer than three graded calls is provisional.
+        Every pick carries your confidence, graded with the Brier score (the squared gap between your confidence and what happened). Your{" "}
+        <b>edge</b> is how much better that was than everyone else&apos;s on the same bet, Claude included. Calling a sure thing earns
+        nothing, because everyone else called it too; you score by knowing something the room didn&apos;t. Points only move between the
+        people on a bet, so nobody can farm them. Fewer than three rated calls is provisional.
+      </>
+    ),
+  },
+  {
+    icon: <BadgeCheck className="size-5" />,
+    title: "Only rated bets count",
+    body: (
+      <>
+        A bet counts toward scores when at least two people forecast it, betting stayed open for an hour, and the call can be trusted:
+        made by a neutral judge or Claude, or, if the judge had a stake, confirmed by someone on another side or upheld in a dispute vote.
+        Anything else is <b>unrated</b>: the money still settles, it just doesn&apos;t touch anyone&apos;s record. Each settled bet shows
+        which it was, and why.
       </>
     ),
   },

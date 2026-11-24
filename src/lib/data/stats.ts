@@ -1,8 +1,9 @@
 import "server-only";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "../db";
-import { bets, positions, settlements, type Bet } from "../db/schema";
-import { categoryBreakdown, rankBy, statsFor, type ForecasterStats, type Graded } from "../engine/scoring";
+import { bets, positions, reviews, settlements, type Bet } from "../db/schema";
+import { brier, categoryBreakdown, rankBy, statsFor, type ForecasterStats, type Graded } from "../engine/scoring";
+import { edgesFor, rateBet, type Rating } from "../engine/rating";
 import { CLAUDE_ID } from "../engine/rules";
 import { usersById, type MiniUser } from "./common";
 
@@ -30,9 +31,10 @@ export async function settledBundle(groupIds: string[], filter: StatsFilter = {}
   );
   const ids = rows.map((b) => b.id);
   if (ids.length === 0) return { bets: rows, graded: [], challenge: [] };
-  const [poss, setts] = await Promise.all([
+  const [poss, setts, revs] = await Promise.all([
     db.select().from(positions).where(inArray(positions.betId, ids)),
     db.select().from(settlements).where(inArray(settlements.betId, ids)),
+    db.select().from(reviews).where(inArray(reviews.betId, ids)),
   ]);
   const settleKey = new Map(setts.map((s) => [`${s.betId}:${s.userId}`, s]));
   const graded: Graded[] = [];
@@ -43,6 +45,11 @@ export async function settledBundle(groupIds: string[], filter: StatsFilter = {}
     if (!o || o.type === "void") continue;
     const bp = poss.filter((p) => p.betId === b.id);
     const humanPool = bp.filter((p) => p.userId !== CLAUDE_ID);
+    const rating = b.kind === "challenge" ? null : ratingOf(b, bp, revs.filter((r) => r.betId === b.id));
+    const edges =
+      rating?.rated && o.type === "option"
+        ? edgesFor(bp.map((p) => ({ userId: p.userId, brier: brier(p.confidence, p.optionId === o.optionId) })))
+        : new Map<string, number>();
     const total = humanPool.reduce((a, p) => a + p.amountCents, 0);
     for (const p of bp) {
       const s = settleKey.get(`${b.id}:${p.userId}`);
@@ -68,10 +75,42 @@ export async function settledBundle(groupIds: string[], filter: StatsFilter = {}
         money: b.stakeMode === "money",
         settledAt,
         sideShare: total > 0 ? sidePool / total : sideCount / Math.max(1, humanPool.length),
+        rated: Boolean(rating?.rated),
+        edge: edges.get(p.userId) ?? null,
       });
     }
   }
   return { bets: rows, graded, challenge };
+}
+
+type ReviewRow = { userId: string; kind: "confirm" | "dispute"; proposalVersion: number };
+
+/** Whether a settled bet counts toward scores, from its own rows (see engine/rating.ts). */
+export function ratingOf(
+  b: Pick<Bet, "createdAt" | "closesAt" | "proposedAt" | "proposedById" | "settledVia" | "proposalVersion">,
+  bp: { userId: string; optionId: string | null }[],
+  rs: ReviewRow[],
+): Rating {
+  return rateBet({
+    createdAt: b.createdAt.getTime(),
+    closesAt: b.closesAt.getTime(),
+    proposedAt: b.proposedAt?.getTime() ?? null,
+    proposedById: b.proposedById,
+    settledVia: b.settledVia ?? null,
+    forecasts: bp.map((p) => ({ userId: p.userId, optionId: p.optionId })),
+    confirmedBy: rs.filter((r) => r.kind === "confirm" && r.proposalVersion === b.proposalVersion).map((r) => r.userId),
+  });
+}
+
+/** The rating for one bet page; null until the bet has settled on an outcome. */
+export async function betRating(betId: string): Promise<Rating | null> {
+  const b = await db.select().from(bets).where(eq(bets.id, betId)).get();
+  if (!b || b.status !== "settled" || b.kind === "challenge" || !b.outcome || b.outcome.type === "void") return null;
+  const [bp, rs] = await Promise.all([
+    db.select({ userId: positions.userId, optionId: positions.optionId }).from(positions).where(eq(positions.betId, betId)),
+    db.select({ userId: reviews.userId, kind: reviews.kind, proposalVersion: reviews.proposalVersion }).from(reviews).where(eq(reviews.betId, betId)),
+  ]);
+  return ratingOf(b, bp, rs);
 }
 
 export type LeaderRow = ForecasterStats & { user: MiniUser; followThrough: { n: number; passed: number } };
