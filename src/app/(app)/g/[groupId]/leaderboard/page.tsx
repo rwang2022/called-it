@@ -84,7 +84,7 @@ export default async function LeaderboardPage({ params, searchParams }: Props) {
           ))}
         </div>
       </div>
-      <div className="scrollbar-none -mx-4 mb-6 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+      <div className="scrollbar-none -mx-4 mb-6 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
         <Link href={href({ cat: null })} className={`chip h-8 shrink-0 px-3 ${!cat ? "bg-white/15 text-fg" : "hover:text-fg"}`}>
           All categories
         </Link>

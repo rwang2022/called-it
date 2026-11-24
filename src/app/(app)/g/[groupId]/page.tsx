@@ -83,7 +83,7 @@ export default async function GroupPage({ params, searchParams }: Props) {
           </div>
         )}
 
-        <div className="scrollbar-none -mx-4 mb-3 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+        <div className="scrollbar-none -mx-4 mb-3 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
           {FILTERS.map((x) => (
             <Link key={x.id} href={href({ f: x.id, cat: null })} className={`btn btn-sm shrink-0 ${f === x.id ? "btn-light" : "btn-ghost"}`}>
               {x.label}
@@ -91,7 +91,7 @@ export default async function GroupPage({ params, searchParams }: Props) {
           ))}
         </div>
         {usedCats.length > 1 && (
-          <div className="scrollbar-none -mx-4 mb-6 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+          <div className="scrollbar-none -mx-4 mb-6 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
             {usedCats.map((c) => (
               <Link
                 key={c.id}

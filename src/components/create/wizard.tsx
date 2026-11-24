@@ -226,7 +226,7 @@ export function CreateBetWizard({ me, groups, initialGroupId, claudeOn }: { me: 
               {groups.length > 1 && (
                 <div className="mb-6">
                   <p className="label">Group</p>
-                  <div className="scrollbar-none -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+                  <div className="flex flex-wrap gap-2">
                     {groups.map((g) => (
                       <button
                         key={g.id}
@@ -685,6 +685,26 @@ function Toggle({ on, onChange, icon, title, sub }: { on: boolean; onChange: (v:
   );
 }
 
+/** First names, plus a last initial wherever two people share a first name. */
+function shortNames(people: Member[], meId?: string) {
+  const counts = new Map<string, number>();
+  for (const p of people) counts.set(firstName(p.name), (counts.get(firstName(p.name)) ?? 0) + 1);
+  return new Map(
+    people.map((p) => {
+      if (p.id === meId) return [p.id, "Me"];
+      const first = firstName(p.name);
+      const last = p.name.trim().split(/\s+/).slice(1).pop();
+      return [p.id, (counts.get(first) ?? 0) > 1 && last ? `${first} ${last[0]}.` : first];
+    }),
+  );
+}
+
+const SEARCH_FROM = 10;
+
+/**
+ * Pick one person. Chips wrap onto new lines, so nobody is hidden off the edge; a
+ * filter appears for big groups; arrow keys move the choice like a radio group.
+ */
 function PeoplePicker({
   people,
   value,
@@ -700,24 +720,75 @@ function PeoplePicker({
   noneLabel?: string;
   meId?: string;
 }) {
+  const [query, setQuery] = useState("");
+  const names = useMemo(() => shortNames(people, meId), [people, meId]);
   if (people.length === 0) return <p className="hint">Nobody else is in this group yet — invite some friends first.</p>;
+
+  const q = query.trim().toLowerCase();
+  const shown = q ? people.filter((p) => p.id === value || p.name.toLowerCase().includes(q) || names.get(p.id)!.toLowerCase().includes(q)) : people;
+  // Everything you can land on with the arrow keys, in on-screen order.
+  const keys: (string | null)[] = [...(allowNone ? [null] : []), ...shown.map((p) => p.id)];
+  const focusable = keys.includes(value) ? value : keys[0];
+
+  const onKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const step = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
+    const jump = e.key === "Home" ? 0 : e.key === "End" ? keys.length - 1 : null;
+    if (!step && jump === null) return;
+    e.preventDefault();
+    const at = Math.max(0, keys.indexOf(value));
+    const next = keys[jump ?? (at + step + keys.length) % keys.length];
+    onChange(next);
+    e.currentTarget.querySelector<HTMLButtonElement>(`[data-key="${next ?? ""}"]`)?.focus();
+  };
+
+  const chip = (on: boolean) =>
+    `flex h-11 items-center rounded-full border text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-iris/70 ${
+      on ? "border-iris/60 bg-iris/10 text-fg" : "border-white/10 bg-white/[0.03] text-soft hover:bg-white/[0.07] hover:text-fg"
+    }`;
+
   return (
-    <div className="scrollbar-none -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-      {allowNone && (
-        <button onClick={() => onChange(null)} className={`flex h-11 shrink-0 items-center rounded-full border px-4 text-sm font-medium ${value === null ? "border-iris/60 bg-iris/10" : "border-white/10 bg-white/[0.03] text-muted"}`}>
-          {noneLabel}
-        </button>
+    <div className="space-y-3">
+      {people.length > SEARCH_FROM && (
+        <input
+          className="input !h-10 !text-sm"
+          placeholder={`Find someone (${people.length} people)…`}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          aria-label="Filter people"
+        />
       )}
-      {people.map((p) => (
-        <button
-          key={p.id}
-          onClick={() => onChange(p.id)}
-          className={`flex h-11 shrink-0 items-center gap-2 rounded-full border pl-1.5 pr-4 text-sm font-medium ${value === p.id ? "border-iris/60 bg-iris/10" : "border-white/10 bg-white/[0.03] text-soft"}`}
-        >
-          <Avatar user={p} size="sm" />
-          {p.id === meId ? "Me" : firstName(p.name)}
-        </button>
-      ))}
+      <div role="radiogroup" className="flex flex-wrap gap-2" onKeyDown={onKey}>
+        {allowNone && (
+          <button
+            type="button"
+            role="radio"
+            aria-checked={value === null}
+            tabIndex={focusable === null ? 0 : -1}
+            data-key=""
+            onClick={() => onChange(null)}
+            className={`${chip(value === null)} px-4`}
+          >
+            {noneLabel}
+          </button>
+        )}
+        {shown.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            role="radio"
+            aria-checked={value === p.id}
+            tabIndex={focusable === p.id ? 0 : -1}
+            data-key={p.id}
+            onClick={() => onChange(p.id)}
+            title={p.name}
+            className={`${chip(value === p.id)} gap-2 pl-1.5 pr-4`}
+          >
+            <Avatar user={p} size="sm" />
+            {names.get(p.id)}
+          </button>
+        ))}
+        {q && shown.length === 0 && <p className="hint self-center">Nobody matches “{query}”.</p>}
+      </div>
     </div>
   );
 }
