@@ -11,7 +11,7 @@ import { viewerTimeZone } from "@/lib/tz";
 import { firstName, formatDateTime, money, pct, relativeTime, signedMoney } from "@/lib/format";
 import { Avatar } from "@/components/ui/avatar";
 import { ClaudeGlyph } from "@/components/ui/avatar";
-import { CategoryChip } from "@/components/ui/category";
+import { CategoryPicker } from "@/components/bet/category-picker";
 import { Countdown } from "@/components/ui/countdown";
 import { StatusPill } from "@/components/bet/status-pill";
 import { BinaryBar } from "@/components/bet/odds";
@@ -118,7 +118,7 @@ export default async function BetPage({ params, searchParams }: Props) {
 
       <header className="mb-8 animate-rise">
         <div className="mb-4 flex flex-wrap items-center gap-2">
-          <CategoryChip id={bet.category} />
+          <CategoryPicker betId={bet.id} category={bet.category} />
           <StatusPill phase={bet.phase} closesAt={bet.closesAt} resolvesAt={bet.resolvesAt} reviewDeadline={bet.reviewDeadline} voteDeadline={bet.voteDeadline} now={now} />
           {bet.isPublic && (
             <span className="chip">

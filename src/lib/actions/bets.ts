@@ -375,3 +375,16 @@ export async function deleteComment(commentId: string) {
     refresh();
   });
 }
+
+/**
+ * Fix a bet's category (Life, Markets, Fitness…). It only labels the bet and sorts
+ * it in stats, never changes terms or payouts, so any group member may correct it.
+ */
+export async function setBetCategory(betId: string, category: string) {
+  return run(async () => {
+    if (typeof category !== "string" || !isCategory(category)) fail("Pick a category from the list.");
+    await loadBetForMember(betId);
+    await db.update(bets).set({ category }).where(eq(bets.id, betId));
+    refresh();
+  });
+}
