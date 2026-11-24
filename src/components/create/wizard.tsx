@@ -491,6 +491,24 @@ export function CreateBetWizard({ me, groups, initialGroupId, claudeOn }: { me: 
                   <p className="label">Who judges the outcome?</p>
                   <div className="grid gap-2">
                     <JudgeOption on={judgeMode === "creator"} disabled={subjectIsMe} onClick={() => setJudgeMode("creator")} icon={<Avatar user={me} size="sm" />} title="Me" sub={subjectIsMe ? "Not allowed — the bet is about you." : "You call it; everyone gets 24h to dispute."} />
+                    {judgeMode === "creator" && kind !== "challenge" && (
+                      <div className="rounded-2xl border border-gold/30 bg-gold/[0.07] p-3.5">
+                        <p className="text-[0.84rem] leading-snug text-[#fde68a]">
+                          If you also bet, your side only counts toward scores when someone on the other side confirms your call (or it
+                          survives a dispute vote). A judge with no stake always counts.
+                        </p>
+                        <div className="mt-2.5 flex flex-wrap gap-2">
+                          {claudeJudgeAllowed && (
+                            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setJudgeMode("claude")}>
+                              Let Claude judge
+                            </button>
+                          )}
+                          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setJudgeMode("person")}>
+                            Pick a neutral friend
+                          </button>
+                        </div>
+                      </div>
+                    )}
                     <JudgeOption on={judgeMode === "person"} onClick={() => setJudgeMode("person")} icon={<Gavel className="size-5 text-gold" />} title="A neutral friend" sub="They can't bet on it. Best for anything subjective." />
                     {kind !== "challenge" && (
                       <JudgeOption

@@ -1,3 +1,4 @@
+import { CLAUDE_ID } from "@/lib/engine/rules";
 import { edgePoints } from "@/lib/engine/rating";
 import Link from "next/link";
 import { Crown, Flame, Gavel, Info } from "lucide-react";
@@ -43,6 +44,7 @@ export default async function LeaderboardPage({ params, searchParams }: Props) {
   const ranked = by === "profit" ? lb.byProfit : by === "winrate" ? lb.byWinRate : lb.bySkill;
   const visible = ranked.filter((r) => r.n > 0 || r.followThrough.n > 0 || (by === "profit" && r.stakedCents > 0));
   const pnlBy = new Map(lb.pnl.map((s) => [s.user.id, s.points]));
+  const nameOf = new Map<string, string>([...members.map((m): [string, string] => [m.id, firstName(m.name)]), [CLAUDE_ID, "Claude"]]);
   const vsBot = versusClaude(lb.graded);
   const meta = METRICS.find((m) => m.id === by)!;
 
@@ -149,6 +151,11 @@ export default async function LeaderboardPage({ params, searchParams }: Props) {
                           {r.provisional ? `Provisional · ${r.n}/${MIN_GRADED} rated calls` : `${r.n} rated calls`}
                           {r.followThrough.n > 0 && ` · ${r.followThrough.passed}/${r.followThrough.n} challenges`}
                         </span>
+                        {r.edgeSource && r.edge !== null && r.edge > 0 && (
+                          <span className="block text-xs text-gold" title="Most of this edge was won from a single person. Worth a look if that account is new or never seems to try.">
+                            {Math.round(r.edgeSource.share * 100)}% of this edge came from {nameOf.get(r.edgeSource.userId) ?? "one person"}
+                          </span>
+                        )}
                       </span>
                     </span>
                     <span className="num text-right text-lg font-semibold sm:hidden">{headline(r, by)}</span>

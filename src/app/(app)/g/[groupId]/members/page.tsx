@@ -4,6 +4,7 @@ import { groupMemberList, requireMember } from "@/lib/data/common";
 import { viewerTimeZone } from "@/lib/tz";
 import { formatDate, relativeTime } from "@/lib/format";
 import { isOnline } from "@/lib/presence";
+import { NEW_MEMBER_MS, onProbation } from "@/lib/engine/rating";
 import { requestNow } from "@/lib/now";
 import { OnlineDot } from "@/components/presence/presence";
 import { Avatar } from "@/components/ui/avatar";
@@ -34,6 +35,14 @@ export default async function MembersPage({ params }: { params: Promise<{ groupI
                   {m.name}
                   {m.id === user.id && <span className="text-xs font-normal text-muted">(you)</span>}
                   {m.role === "owner" && <Crown className="size-3.5 text-gold" aria-label="Owner" />}
+                  {onProbation(m.joinedAt.getTime(), group.createdAt.getTime(), now) && (
+                    <span
+                      className="rounded-full bg-iris/15 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-iris"
+                      title={`New members' picks start counting toward scores on ${formatDate(m.joinedAt.getTime() + NEW_MEMBER_MS, tz)}.`}
+                    >
+                      New
+                    </span>
+                  )}
                 </Link>
                 <p className="text-xs text-muted">
                   {m.isBot ? null : isOnline(m.lastSeenAt, now) ? (

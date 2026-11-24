@@ -246,7 +246,7 @@ export async function betDetail(betId: string, viewerId: string) {
       user: people.get(c.userId) ?? { id: c.userId, name: "Someone", image: null, isBot: false },
       createdAt: c.createdAt.getTime(),
     })),
-    settlements: bySettle.map((s) => ({ userId: s.userId, netCents: s.netCents, result: s.result })),
+    settlements: bySettle.map((s) => ({ userId: s.userId, netCents: s.netCents, stakedCents: s.stakedCents, result: s.result })),
   };
 }
 

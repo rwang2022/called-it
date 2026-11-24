@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { computePayouts, crowdForecast, distribute, poolStats, type PayoutPosition } from "./payout";
 import { computeBalances, simplifyDebts } from "./ledger";
 import { brier, rankBy, statsFor, type Graded } from "./scoring";
-import { edgesFor, rateBet, type RatingInput } from "./rating";
+import { onProbation, rateBet, scoreBet, type RatingInput } from "./rating";
 import {
   canCancel,
   canJudge,
@@ -359,60 +359,97 @@ describe("rules", () => {
 
 describe("rating — what counts toward scores", () => {
   const t0 = Date.UTC(2026, 10, 1);
+  const f = (userId: string, optionId: string, confidence = 70, probation = false) => ({ userId, optionId, confidence, probation });
   const base = (over: Partial<RatingInput> = {}): RatingInput => ({
     createdAt: t0,
     closesAt: t0 + 2 * HOUR,
     proposedAt: t0 + 3 * HOUR,
     proposedById: "judge",
     settledVia: "window",
-    forecasts: [
-      { userId: "a", optionId: "yes" },
-      { userId: "b", optionId: "no" },
-    ],
+    forecasts: [f("a", "yes"), f("b", "no")],
     confirmedBy: [],
     ...over,
   });
   it("neutral judge, two forecasters, open 2h: rated", () => {
-    expect(rateBet(base()).rated).toBe(true);
+    expect(rateBet(base()).status).toBe("rated");
   });
   it("a solo bet isn't rated", () => {
-    expect(rateBet(base({ forecasts: [{ userId: "a", optionId: "yes" }] })).rated).toBe(false);
+    expect(rateBet(base({ forecasts: [f("a", "yes")] })).status).toBe("unrated");
   });
   it("closing within an hour isn't rated, and neither is an early call", () => {
-    expect(rateBet(base({ closesAt: t0 + 5 * 60_000 })).rated).toBe(false);
-    expect(rateBet(base({ proposedAt: t0 + 10 * 60_000 })).rated).toBe(false);
+    expect(rateBet(base({ closesAt: t0 + 5 * 60_000 })).status).toBe("unrated");
+    expect(rateBet(base({ proposedAt: t0 + 10 * 60_000 })).status).toBe("unrated");
   });
-  it("a judge with a stake needs an opponent's confirmation or a vote", () => {
-    const self = { proposedById: "a" };
-    expect(rateBet(base(self)).rated).toBe(false);
-    expect(rateBet(base({ ...self, confirmedBy: ["b"] })).rated).toBe(true);
-    expect(rateBet(base({ ...self, settledVia: "vote" })).rated).toBe(true);
-    // An ally on the same side confirming doesn't count.
-    const ally = { forecasts: [{ userId: "a", optionId: "yes" }, { userId: "c", optionId: "yes" }, { userId: "b", optionId: "no" }] };
-    expect(rateBet(base({ ...self, ...ally, confirmedBy: ["c"] })).rated).toBe(false);
+  it("judge with a stake, unconfirmed: only the judge's side is unrated; silence can't erase the other side's loss", () => {
+    const r = rateBet(base({ proposedById: "a", forecasts: [f("a", "yes"), f("c", "yes"), f("b", "no")] }));
+    expect(r.status).toBe("partial");
+    expect(r.status === "partial" && r.unrated.sort()).toEqual(["a", "c"]);
+  });
+  it("an opponent's confirmation or a vote makes it fully rated; an ally's doesn't", () => {
+    const self = { proposedById: "a", forecasts: [f("a", "yes"), f("c", "yes"), f("b", "no")] };
+    expect(rateBet(base({ ...self, confirmedBy: ["b"] })).status).toBe("rated");
+    expect(rateBet(base({ ...self, settledVia: "vote" })).status).toBe("rated");
+    expect(rateBet(base({ ...self, confirmedBy: ["c"] })).status).toBe("partial");
+  });
+  it("a judge who rules against their own pick has no conflict: fully rated", () => {
+    const self = { proposedById: "a", forecasts: [f("a", "yes"), f("c", "yes"), f("b", "no")] };
+    expect(rateBet(base(self), "no").status).toBe("rated");
+    expect(rateBet(base(self), "yes").status).toBe("partial");
+  });
+  it("judge with a stake and everyone on their side: unrated", () => {
+    expect(rateBet(base({ proposedById: "a", forecasts: [f("a", "yes"), f("c", "yes")] })).status).toBe("unrated");
   });
   it("Claude judging its own public bet is treated as neutral", () => {
-    expect(rateBet(base({ proposedById: CLAUDE_ID, forecasts: [{ userId: CLAUDE_ID, optionId: "yes" }, { userId: "b", optionId: "no" }] })).rated).toBe(true);
+    expect(rateBet(base({ proposedById: CLAUDE_ID, forecasts: [f(CLAUDE_ID, "yes"), f("b", "no")] })).status).toBe("rated");
+  });
+  it("new members don't count, and a bet against only a new member is unrated", () => {
+    expect(rateBet(base({ forecasts: [f("a", "yes"), f("puppet", "no", 99, true)] })).status).toBe("unrated");
+    const r = rateBet(base({ forecasts: [f("a", "yes"), f("b", "no"), f("puppet", "no", 99, true)] }));
+    expect(r.status === "partial" && r.unrated).toEqual(["puppet"]);
+  });
+  it("new-member rule spares a group's founders", () => {
+    const g = t0;
+    expect(onProbation(g + 2 * DAY, g, g + 3 * DAY)).toBe(false); // joined in the founding week
+    expect(onProbation(g + 30 * DAY, g, g + 31 * DAY)).toBe(true); // joined later, picked on day 1
+    expect(onProbation(g + 30 * DAY, g, g + 38 * DAY)).toBe(false); // a week on
   });
 });
 
 describe("edge — scored against the room", () => {
+  const t0 = Date.UTC(2026, 10, 1);
+  const bet = (forecasts: RatingInput["forecasts"]): RatingInput => ({
+    createdAt: t0, closesAt: t0 + 2 * HOUR, proposedAt: t0 + 3 * HOUR, proposedById: "judge", settledVia: "confirmed", forecasts, confirmedBy: [],
+  });
   it("everyone calling a sure thing earns ~0", () => {
-    const e = edgesFor([
-      { userId: "a", brier: brier(99, true) },
-      { userId: "b", brier: brier(99, true) },
-    ]);
-    expect(e.get("a")).toBeCloseTo(0);
+    const { picks } = scoreBet(bet([{ userId: "a", optionId: "yes", confidence: 99 }, { userId: "b", optionId: "yes", confidence: 99 }]), "yes");
+    expect(picks[0].edge).toBeCloseTo(0);
   });
-  it("is zero-sum between two people", () => {
-    const e = edgesFor([
-      { userId: "a", brier: brier(80, true) },
-      { userId: "b", brier: brier(30, true) },
-    ]);
-    expect(e.get("a")! + e.get("b")!).toBeCloseTo(0);
-    expect(e.get("a")!).toBeGreaterThan(0);
+  it("is zero-sum between two people, and edgeFrom adds up to edge", () => {
+    const { picks } = scoreBet(bet([{ userId: "a", optionId: "yes", confidence: 80 }, { userId: "b", optionId: "yes", confidence: 30 }]), "yes");
+    expect(picks[0].edge! + picks[1].edge!).toBeCloseTo(0);
+    expect(picks[0].edge).toBeGreaterThan(0);
+    expect(picks[0].edgeFrom.b).toBeCloseTo(picks[0].edge!);
   });
-  it("needs at least two forecasters", () => {
-    expect(edgesFor([{ userId: "a", brier: 0.1 }]).size).toBe(0);
+  it("a new member's 99% wrong pick feeds nobody", () => {
+    const { picks } = scoreBet(
+      bet([{ userId: "a", optionId: "yes", confidence: 70 }, { userId: "b", optionId: "yes", confidence: 70 }, { userId: "puppet", optionId: "no", confidence: 99, probation: true }]),
+      "yes",
+    );
+    expect(picks[0].edge).toBeCloseTo(0);
+    expect(picks[2].rated).toBe(false);
+  });
+});
+
+describe("edge sources", () => {
+  it("flags edge mostly won from one person", () => {
+    const g = (i: number, from: Record<string, number>): Graded => ({
+      userId: "farmer", betId: `b${i}`, category: "life", kind: "binary", isPublic: false, confidence: 90, hit: true,
+      netCents: 0, stakedCents: 0, money: false, settledAt: i, sideShare: 0.5, rated: true,
+      edge: Object.values(from).reduce((a, x) => a + x, 0), edgeFrom: from,
+    });
+    const graded = [1, 2, 3, 4, 5].map((i) => g(i, { puppet: 0.4, jo: 0.02 }));
+    expect(statsFor("farmer", graded).edgeSource?.userId).toBe("puppet");
+    const fair = [1, 2, 3, 4, 5].map((i) => g(i, { a: 0.1, b: 0.1, c: 0.1 }));
+    expect(statsFor("farmer", fair).edgeSource).toBeNull();
   });
 });

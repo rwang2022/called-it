@@ -87,10 +87,11 @@ const RULES: { icon: React.ReactNode; title: string; body: React.ReactNode }[] =
     title: "Only rated bets count",
     body: (
       <>
-        A bet counts toward scores when at least two people forecast it, betting stayed open for an hour, and the call can be trusted:
-        made by a neutral judge or Claude, or, if the judge had a stake, confirmed by someone on another side or upheld in a dispute vote.
-        Anything else is <b>unrated</b>: the money still settles, it just doesn&apos;t touch anyone&apos;s record. Each settled bet shows
-        which it was, and why.
+        A bet counts toward scores when at least two people forecast it and betting stayed open for an hour. If the judge also bet and
+        called it their own way, their side only counts once someone on another side confirms or a dispute vote upholds it; everyone
+        else&apos;s picks still count, because they had 24 hours to dispute. People who join an established group sit out of scoring for
+        their first week. Anything that doesn&apos;t count is <b>unrated</b>: the money still settles, it just doesn&apos;t touch
+        anyone&apos;s record. Open bets show a live &ldquo;Will this count?&rdquo; checklist, and settled ones show which it was, and why.
       </>
     ),
   },

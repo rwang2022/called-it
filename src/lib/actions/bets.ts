@@ -16,6 +16,7 @@ import {
   canPropose,
   canReview,
   canTakePosition,
+  judgeOf,
   subjectMayPick,
   validateOutcome,
 } from "../engine/rules";
@@ -385,6 +386,39 @@ export async function setBetCategory(betId: string, category: string) {
     if (typeof category !== "string" || !isCategory(category)) fail("Pick a category from the list.");
     await loadBetForMember(betId);
     await db.update(bets).set({ category }).where(eq(bets.id, betId));
+    refresh();
+  });
+}
+
+/**
+ * Hand judging to someone with no stake: Claude (public events only) or a group
+ * member who isn't betting and isn't the bet's subject. Only the creator can do
+ * it, only while betting is open, and only away from a judge who has a stake,
+ * so it can make a bet more trustworthy but never less.
+ */
+export async function makeJudgeNeutral(betId: string, to: { mode: "claude" } | { mode: "person"; judgeId: string }) {
+  return run(async () => {
+    const { bet, user } = await loadBetForMember(betId);
+    if (bet.creatorId !== user.id) fail("Only the creator can change the judge.");
+    if (bet.status !== "open") fail("The judge can only change while betting is open.");
+    const ps = await db.select({ userId: positions.userId }).from(positions).where(eq(positions.betId, betId));
+    const betting = new Set(ps.map((p) => p.userId));
+    if (!betting.has(judgeOf(bet))) fail("The judge is already neutral.");
+    if (to.mode === "claude") {
+      if (!bet.isPublic || !claudeEnabled()) fail("Claude can only judge public events.");
+      await db.update(bets).set({ judgeMode: "claude", judgeId: null, updatedAt: new Date() }).where(and(eq(bets.id, betId), eq(bets.status, "open")));
+    } else {
+      const judgeId = z.string().max(40).parse(to.judgeId);
+      if (betting.has(judgeId)) fail("They're betting on it, so they can't judge it.");
+      if (judgeId === bet.subjectId) fail("The person it's about can't judge it.");
+      const member = await db
+        .select({ userId: groupMembers.userId })
+        .from(groupMembers)
+        .where(and(eq(groupMembers.groupId, bet.groupId), eq(groupMembers.userId, judgeId)))
+        .get();
+      if (!member) fail("They're not in this group.");
+      await db.update(bets).set({ judgeMode: "person", judgeId, updatedAt: new Date() }).where(and(eq(bets.id, betId), eq(bets.status, "open")));
+    }
     refresh();
   });
 }

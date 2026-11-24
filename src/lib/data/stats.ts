@@ -1,9 +1,10 @@
 import "server-only";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "../db";
-import { bets, positions, reviews, settlements, type Bet } from "../db/schema";
-import { brier, categoryBreakdown, rankBy, statsFor, type ForecasterStats, type Graded } from "../engine/scoring";
-import { edgesFor, rateBet, type Rating } from "../engine/rating";
+import { bets, groupMembers, groups, positions, reviews, settlements, type Bet } from "../db/schema";
+import { categoryBreakdown, rankBy, statsFor, type ForecasterStats, type Graded } from "../engine/scoring";
+import { onProbation, ratingOutlook, scoreBet, type RatingInput, type ScoredPick } from "../engine/rating";
+import { judgeOf } from "../engine/rules";
 import { CLAUDE_ID } from "../engine/rules";
 import { usersById, type MiniUser } from "./common";
 
@@ -31,10 +32,11 @@ export async function settledBundle(groupIds: string[], filter: StatsFilter = {}
   );
   const ids = rows.map((b) => b.id);
   if (ids.length === 0) return { bets: rows, graded: [], challenge: [] };
-  const [poss, setts, revs] = await Promise.all([
+  const [poss, setts, revs, joins] = await Promise.all([
     db.select().from(positions).where(inArray(positions.betId, ids)),
     db.select().from(settlements).where(inArray(settlements.betId, ids)),
     db.select().from(reviews).where(inArray(reviews.betId, ids)),
+    membershipDates(groupIds),
   ]);
   const settleKey = new Map(setts.map((s) => [`${s.betId}:${s.userId}`, s]));
   const graded: Graded[] = [];
@@ -45,11 +47,10 @@ export async function settledBundle(groupIds: string[], filter: StatsFilter = {}
     if (!o || o.type === "void") continue;
     const bp = poss.filter((p) => p.betId === b.id);
     const humanPool = bp.filter((p) => p.userId !== CLAUDE_ID);
-    const rating = b.kind === "challenge" ? null : ratingOf(b, bp, revs.filter((r) => r.betId === b.id));
-    const edges =
-      rating?.rated && o.type === "option"
-        ? edgesFor(bp.map((p) => ({ userId: p.userId, brier: brier(p.confidence, p.optionId === o.optionId) })))
-        : new Map<string, number>();
+    const scored =
+      o.type === "option" && b.kind !== "challenge"
+        ? new Map(scoreBet(ratingInput(b, bp, revs.filter((r) => r.betId === b.id), joins), o.optionId).picks.map((p) => [p.userId, p]))
+        : new Map<string, ScoredPick>();
     const total = humanPool.reduce((a, p) => a + p.amountCents, 0);
     for (const p of bp) {
       const s = settleKey.get(`${b.id}:${p.userId}`);
@@ -75,8 +76,9 @@ export async function settledBundle(groupIds: string[], filter: StatsFilter = {}
         money: b.stakeMode === "money",
         settledAt,
         sideShare: total > 0 ? sidePool / total : sideCount / Math.max(1, humanPool.length),
-        rated: Boolean(rating?.rated),
-        edge: edges.get(p.userId) ?? null,
+        rated: scored.get(p.userId)?.rated ?? false,
+        edge: scored.get(p.userId)?.edge ?? null,
+        edgeFrom: scored.get(p.userId)?.edgeFrom,
       });
     }
   }
@@ -84,34 +86,86 @@ export async function settledBundle(groupIds: string[], filter: StatsFilter = {}
 }
 
 type ReviewRow = { userId: string; kind: "confirm" | "dispute"; proposalVersion: number };
+type PositionRow = { userId: string; optionId: string | null; confidence: number; createdAt: Date };
+/** groupId → { group's createdAt, userId → joinedAt } for the new-member rule. */
+type Joins = Map<string, { createdAt: number; joined: Map<string, number> }>;
 
-/** Whether a settled bet counts toward scores, from its own rows (see engine/rating.ts). */
-export function ratingOf(
-  b: Pick<Bet, "createdAt" | "closesAt" | "proposedAt" | "proposedById" | "settledVia" | "proposalVersion">,
-  bp: { userId: string; optionId: string | null }[],
+export async function membershipDates(groupIds: string[]): Promise<Joins> {
+  if (groupIds.length === 0) return new Map();
+  const [gs, ms] = await Promise.all([
+    db.select({ id: groups.id, createdAt: groups.createdAt }).from(groups).where(inArray(groups.id, groupIds)),
+    db.select().from(groupMembers).where(inArray(groupMembers.groupId, groupIds)),
+  ]);
+  const out: Joins = new Map(gs.map((g) => [g.id, { createdAt: g.createdAt.getTime(), joined: new Map() }]));
+  for (const m of ms) out.get(m.groupId)?.joined.set(m.userId, m.joinedAt.getTime());
+  return out;
+}
+
+/** A settled bet's rows in the shape the rating engine takes (see engine/rating.ts). */
+export function ratingInput(
+  b: Pick<Bet, "groupId" | "createdAt" | "closesAt" | "proposedAt" | "proposedById" | "settledVia" | "proposalVersion">,
+  bp: PositionRow[],
   rs: ReviewRow[],
-): Rating {
-  return rateBet({
+  joins: Joins,
+): RatingInput {
+  const g = joins.get(b.groupId);
+  return {
     createdAt: b.createdAt.getTime(),
     closesAt: b.closesAt.getTime(),
     proposedAt: b.proposedAt?.getTime() ?? null,
     proposedById: b.proposedById,
     settledVia: b.settledVia ?? null,
-    forecasts: bp.map((p) => ({ userId: p.userId, optionId: p.optionId })),
+    forecasts: bp.map((p) => ({
+      userId: p.userId,
+      optionId: p.optionId,
+      confidence: p.confidence,
+      probation: p.userId !== CLAUDE_ID && Boolean(g) && onProbation(g!.joined.get(p.userId), g!.createdAt, p.createdAt.getTime()),
+    })),
     confirmedBy: rs.filter((r) => r.kind === "confirm" && r.proposalVersion === b.proposalVersion).map((r) => r.userId),
-  });
+  };
 }
 
-/** The rating for one bet page; null until the bet has settled on an outcome. */
-export async function betRating(betId: string): Promise<Rating | null> {
+/** Rating and per-pick scores for one settled bet page; null unless it settled on an option. */
+export async function betScores(betId: string) {
   const b = await db.select().from(bets).where(eq(bets.id, betId)).get();
-  if (!b || b.status !== "settled" || b.kind === "challenge" || !b.outcome || b.outcome.type === "void") return null;
-  const [bp, rs] = await Promise.all([
-    db.select({ userId: positions.userId, optionId: positions.optionId }).from(positions).where(eq(positions.betId, betId)),
+  if (!b || b.status !== "settled" || b.kind === "challenge" || b.outcome?.type !== "option") return null;
+  const [bp, rs, joins] = await Promise.all([
+    db.select().from(positions).where(eq(positions.betId, betId)),
     db.select({ userId: reviews.userId, kind: reviews.kind, proposalVersion: reviews.proposalVersion }).from(reviews).where(eq(reviews.betId, betId)),
+    membershipDates([b.groupId]),
   ]);
-  return ratingOf(b, bp, rs);
+  return scoreBet(ratingInput(b, bp, rs, joins), b.outcome.optionId);
 }
+
+/**
+ * Will an open bet count toward scores? The live checklist, plus the people who
+ * could take over judging without a conflict (in the group, no position, not the subject).
+ */
+export async function betOutlook(betId: string) {
+  const b = await db.select().from(bets).where(eq(bets.id, betId)).get();
+  if (!b || b.status !== "open" || b.kind === "challenge") return null;
+  const [bp, joins, members] = await Promise.all([
+    db.select({ userId: positions.userId, createdAt: positions.createdAt }).from(positions).where(eq(positions.betId, betId)),
+    membershipDates([b.groupId]),
+    db.select({ userId: groupMembers.userId }).from(groupMembers).where(eq(groupMembers.groupId, b.groupId)),
+  ]);
+  const g = joins.get(b.groupId);
+  const outlook = ratingOutlook({
+    createdAt: b.createdAt.getTime(),
+    closesAt: b.closesAt.getTime(),
+    judgeId: judgeOf(b),
+    forecasts: bp.map((p) => ({
+      userId: p.userId,
+      probation: p.userId !== CLAUDE_ID && Boolean(g) && onProbation(g!.joined.get(p.userId), g!.createdAt, p.createdAt.getTime()),
+    })),
+  });
+  const betting = new Set(bp.map((p) => p.userId));
+  const neutralIds = members.map((m) => m.userId).filter((id) => !betting.has(id) && id !== b.subjectId && id !== CLAUDE_ID);
+  const people = await usersById(neutralIds);
+  return { ...outlook, neutralPeople: neutralIds.map((id) => people.get(id)).filter((u): u is MiniUser => Boolean(u)) };
+}
+
+export type BetOutlook = NonNullable<Awaited<ReturnType<typeof betOutlook>>>;
 
 export type LeaderRow = ForecasterStats & { user: MiniUser; followThrough: { n: number; passed: number } };
 

@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Ban, BadgeCheck, CircleSlash, ExternalLink, Gavel, Globe, Lock, Scale, Sparkles, Swords, Trophy, UserRound } from "lucide-react";
-import { betRating } from "@/lib/data/stats";
+import { betOutlook, betScores } from "@/lib/data/stats";
+import { edgePoints, type ScoredPick } from "@/lib/engine/rating";
+import { RatingChecklist } from "@/components/bet/rating-checklist";
 import { requireUser } from "@/lib/auth/current";
 import { membership } from "@/lib/data/common";
 import { betDetail, groupOf, type BetVM, type PositionVM } from "@/lib/data/bets";
@@ -56,7 +58,8 @@ export default async function BetPage({ params, searchParams }: Props) {
   const { bet, raw, tally } = d;
   const now = requestNow();
   const tz = await viewerTimeZone();
-  const rating = await betRating(betId);
+  const [scores, outlook] = await Promise.all([betScores(betId), bet.status === "open" ? betOutlook(betId) : null]);
+  const rating = scores?.rating ?? null;
 
   const humanPositions = bet.positions.filter((p) => !p.user.isBot);
   const canTake = canTakePosition(raw, user.id, now).ok;
@@ -128,9 +131,13 @@ export default async function BetPage({ params, searchParams }: Props) {
             </span>
           )}
           {rating &&
-            (rating.rated ? (
+            (rating.status === "rated" ? (
               <span className="chip border-yes/30 bg-yes/10 text-yes" title="This bet counts toward everyone's forecasting scores.">
                 <BadgeCheck className="size-3.5" /> Rated
+              </span>
+            ) : rating.status === "partial" ? (
+              <span className="chip text-soft" title={rating.reason}>
+                <BadgeCheck className="size-3.5" /> Partly rated
               </span>
             ) : (
               <span className="chip text-muted" title={`${rating.reason} Money still settled as normal.`}>
@@ -148,11 +155,12 @@ export default async function BetPage({ params, searchParams }: Props) {
           )}
           {bet.subject && <Person label="About" user={bet.subject} icon={<UserRound className="size-3.5" />} />}
         </div>
-        {rating && !rating.rated && (
+        {rating && rating.status !== "rated" && (
           <p className="mt-4 flex max-w-3xl items-start gap-2 text-sm text-muted">
             <CircleSlash className="mt-0.5 size-4 shrink-0" />
             <span>
-              Doesn&apos;t count toward forecasting scores: {rating.reason.charAt(0).toLowerCase() + rating.reason.slice(1)} Money settled as normal.
+              {rating.status === "partial" ? "Partly counts toward forecasting scores: " : "Doesn’t count toward forecasting scores: "}
+              {rating.reason.charAt(0).toLowerCase() + rating.reason.slice(1)} Money settled as normal.
             </span>
           </p>
         )}
@@ -165,6 +173,11 @@ export default async function BetPage({ params, searchParams }: Props) {
           <div className="order-1 empty:hidden lg:order-none">
             <Outcome bet={bet} tally={tally} now={now} tz={tz} settlements={d.settlements} reviews={d.reviews} />
           </div>
+          {scores && scores.rating.status !== "unrated" && (
+            <div className="order-2 lg:order-none">
+              <ScoreReceipt bet={bet} picks={scores.picks} viewerId={user.id} />
+            </div>
+          )}
           <div className="order-2 lg:order-none">
             <Market bet={bet} />
           </div>
@@ -189,6 +202,17 @@ export default async function BetPage({ params, searchParams }: Props) {
 
         <aside className="contents lg:block lg:space-y-6">
           <div className="order-3 empty:hidden lg:order-none">{actionPanel}</div>
+          {outlook && (
+            <div className="order-3 lg:order-none">
+              <RatingChecklist
+                betId={bet.id}
+                outlook={outlook}
+                judgeName={bet.judge ? (bet.judge.isBot ? "Claude" : firstName(bet.judge.name)) : "The judge"}
+                canFix={bet.creator.id === user.id}
+                claudeAllowed={bet.isPublic && claudeEnabled()}
+              />
+            </div>
+          )}
           <div className="order-8 lg:order-none">
             <Timeline bet={bet} tz={tz} now={now} />
           </div>
@@ -200,6 +224,45 @@ export default async function BetPage({ params, searchParams }: Props) {
         </aside>
       </div>
     </article>
+  );
+}
+
+/** How each forecast scored against the room: Brier and edge, rated picks only. */
+function ScoreReceipt({ bet, picks, viewerId }: { bet: BetVM; picks: ScoredPick[]; viewerId: string }) {
+  const people = new Map(bet.positions.map((p) => [p.user.id, p.user]));
+  const label = new Map(bet.options.map((o) => [o.id, o.label]));
+  const shown = picks.filter((p) => p.rated && people.has(p.userId)).sort((a, b) => (b.edge ?? 0) - (a.edge ?? 0));
+  if (shown.length === 0) return null;
+  const mine = shown.find((p) => p.userId === viewerId);
+  return (
+    <section className="surface p-5 sm:p-6">
+      <div className="mb-4 flex items-baseline justify-between gap-3">
+        <h2 className="text-sm font-semibold text-soft">{mine ? "Your score on this bet" : "How everyone scored"}</h2>
+        {mine && <span className={`num text-2xl font-semibold ${(mine.edge ?? 0) >= 0 ? "text-yes" : "text-no"}`}>{edgePoints(mine.edge)}</span>}
+      </div>
+      <div className="grid grid-cols-[minmax(0,1fr)_4.5rem_4rem] gap-x-3 gap-y-2 text-sm">
+        <span className="eyebrow">Forecast</span>
+        <span className="eyebrow text-right">Brier</span>
+        <span className="eyebrow text-right">Edge</span>
+        {shown.map((p) => {
+          const u = people.get(p.userId)!;
+          const me = p.userId === viewerId;
+          return (
+            <div key={p.userId} className="contents">
+              <span className={`min-w-0 truncate ${me ? "font-semibold" : "text-soft"}`}>
+                {me ? "You" : u.isBot ? "Claude" : firstName(u.name)} · {label.get(p.optionId ?? "") ?? "—"}, {p.confidence}%
+              </span>
+              <span className="num text-right text-soft">{p.brier.toFixed(2)}</span>
+              <span className={`num text-right ${(p.edge ?? 0) > 0.005 ? "text-yes" : (p.edge ?? 0) < -0.005 ? "text-no" : "text-soft"}`}>{edgePoints(p.edge)}</span>
+            </div>
+          );
+        })}
+      </div>
+      <p className="hint mt-4">
+        Brier is how far a forecast&apos;s confidence was from what happened (0 is perfect). Edge is how much better it was than everyone
+        else&apos;s on this bet. Being right <i>and</i> sure is what scores.
+      </p>
+    </section>
   );
 }
 
@@ -496,7 +559,7 @@ function Outcome({
   tally: { reviewers: string[]; confirms: string[]; disputes: string[]; waitingOn: string[] };
   now: number;
   tz: string;
-  settlements: { userId: string; netCents: number; result: string }[];
+  settlements: { userId: string; netCents: number; stakedCents: number; result: string }[];
   reviews: { id: string; kind: "confirm" | "dispute"; reason: string | null; user: BetVM["creator"] }[];
 }) {
   if (bet.status === "settled" && bet.outcome) {
@@ -525,8 +588,16 @@ function Outcome({
                 <li key={p.id} className="flex items-center gap-2.5 rounded-xl bg-white/[0.03] px-3 py-2">
                   <Avatar user={p.user} size="sm" />
                   <span className="flex-1 truncate text-sm font-medium">{firstName(p.user.name)}</span>
-                  <span className={`num text-sm font-semibold ${tone}`}>
-                    {bet.stakeMode === "money" && moneyMoved ? signedMoney(s?.netCents ?? 0) : s?.result === "win" ? "Won" : s?.result === "loss" ? "Lost" : "Push"}
+                  <span className="text-right">
+                    <span className={`num block text-sm font-semibold ${tone}`}>
+                      {bet.stakeMode === "money" && moneyMoved ? signedMoney(s?.netCents ?? 0) : s?.result === "win" ? "Won" : s?.result === "loss" ? "Lost" : "Push"}
+                    </span>
+                    {/* Fair-odds cap: the part of a losing stake nobody matched came back. */}
+                    {bet.stakeMode === "money" && moneyMoved && s?.result === "loss" && s.stakedCents + s.netCents > 0 && (
+                      <span className="block text-[0.7rem] text-muted">
+                        {money(s.stakedCents + s.netCents)} of {money(s.stakedCents)} refunded (unmatched)
+                      </span>
+                    )}
                   </span>
                 </li>
               );
@@ -534,7 +605,7 @@ function Outcome({
           </ul>
         )}
         {bet.stakeMode === "money" && !moneyMoved && bet.outcome.type !== "void" && (
-          <p className="relative mt-3 text-xs text-muted">Nobody was on the other side, so no money changed hands — but the picks still count.</p>
+          <p className="relative mt-3 text-xs text-muted">Nobody was on the other side, so no money changed hands.</p>
         )}
       </section>
     );

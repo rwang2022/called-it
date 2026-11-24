@@ -18,7 +18,13 @@ export type Graded = {
   rated: boolean;
   /** Others' average Brier minus this pick's; null when unrated. */
   edge: number | null;
+  /** Each other forecaster's share of `edge` (see engine/rating.ts scoreBet). */
+  edgeFrom?: Record<string, number>;
 };
+
+/** Flag someone whose edge mostly comes from one person, once they have this many rated calls. */
+export const SOURCE_MIN_CALLS = 5;
+export const SOURCE_SHARE = 0.6;
 
 export const brier = (confidence: number, hit: boolean) => {
   const p = Math.min(99, Math.max(1, confidence)) / 100;
@@ -47,6 +53,8 @@ export type ForecasterStats = {
   unrated: number;
   /** Average edge over the room on rated calls (higher is better); null with none. */
   edge: number | null;
+  /** Set when most of a positive edge was won from one person (a possible farm). */
+  edgeSource: { userId: string; share: number } | null;
   wins: number;
   losses: number;
   winRate: number;
@@ -100,6 +108,7 @@ export function statsFor(userId: string, graded: Graded[]): ForecasterStats {
     n,
     unrated: all.length - n,
     edge: edges.length ? edges.reduce((a, e) => a + e, 0) / edges.length : null,
+    edgeSource: edgeSource(mine),
     wins,
     losses: n - wins,
     winRate: n ? wins / n : 0,
@@ -114,6 +123,18 @@ export function statsFor(userId: string, graded: Graded[]): ForecasterStats {
     calibration,
     provisional: n < MIN_GRADED,
   };
+}
+
+/** Who most of someone's positive edge came from, if it's suspiciously concentrated. */
+function edgeSource(mine: Graded[]): ForecasterStats["edgeSource"] {
+  if (mine.length < SOURCE_MIN_CALLS) return null;
+  const won = new Map<string, number>();
+  for (const g of mine) for (const [id, v] of Object.entries(g.edgeFrom ?? {})) won.set(id, (won.get(id) ?? 0) + v);
+  const positive = [...won].filter(([, v]) => v > 0);
+  const total = positive.reduce((a, [, v]) => a + v, 0);
+  if (total <= 0) return null;
+  const [userId, top] = positive.sort((a, b) => b[1] - a[1])[0];
+  return top / total > SOURCE_SHARE ? { userId, share: top / total } : null;
 }
 
 export function categoryBreakdown(userId: string, graded: Graded[]) {

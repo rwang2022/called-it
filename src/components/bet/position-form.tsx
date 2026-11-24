@@ -51,6 +51,16 @@ export function PositionForm({ bet }: { bet: PositionFormBet }) {
     return Math.floor((amount * matched) / mineOn);
   }, [money_, bet.kind, bet.options, optionId, amount, mine]);
 
+  // Yes/no: how much of your stake the other side has matched (the most you can lose).
+  // The rest comes back to you whatever happens, unless more people take the other side.
+  const matched = useMemo(() => {
+    if (!money_ || bet.kind !== "binary" || !optionId || amount <= 0) return null;
+    const pools = bet.options.map((o) => ({ id: o.id, pool: o.pool - (mine && mine.optionId === o.id ? mine.amountCents : 0) }));
+    const mineOn = pools.find((p) => p.id === optionId)!.pool + amount;
+    const others = pools.filter((p) => p.id !== optionId).reduce((a, p) => a + p.pool, 0);
+    return Math.min(amount, Math.floor((amount * others) / mineOn));
+  }, [money_, bet.kind, bet.options, optionId, amount, mine]);
+
   const sideDone = bet.kind === "challenge" ? task.trim().length > 0 : Boolean(optionId);
   const stakeDone = !money_ || !bet.customStakes || bet.kind === "challenge" || (amount >= 100 && amount <= 1_000_000);
   const valid = sideDone && stakeDone;
@@ -197,14 +207,34 @@ export function PositionForm({ bet }: { bet: PositionFormBet }) {
             Stake <span className="num text-fg">{money(bet.stakeCents)}</span> · whoever fails pays whoever succeeds.
           </p>
         ) : (
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-muted">
-              You risk <span className="num text-fg">{money(amount)}</span>
-            </span>
-            <span className="text-muted">
-              Win est.{" "}
-              <span className="num font-semibold text-yes">{estimate === null ? "—" : estimate === 0 ? "$0 (no takers yet)" : signedMoney(estimate)}</span>
-            </span>
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-muted">
+                You risk <span className="num text-fg">{money(matched ?? amount)}</span>
+              </span>
+              <span className="text-muted">
+                Win est.{" "}
+                <span className="num font-semibold text-yes">{estimate === null ? "—" : estimate === 0 ? "$0 (no takers yet)" : signedMoney(estimate)}</span>
+              </span>
+            </div>
+            {matched !== null && matched < amount && (
+              <div className="space-y-1.5">
+                <div className="flex h-2 overflow-hidden rounded-full bg-white/[0.06]" aria-hidden>
+                  <div className="h-full bg-yes" style={{ width: `${(matched / amount) * 100}%` }} />
+                  <div className="h-full flex-1 bg-[repeating-linear-gradient(135deg,rgb(255_255_255/.12)_0_6px,transparent_6px_12px)]" />
+                </div>
+                <p className="text-xs leading-snug text-muted">
+                  {matched === 0 ? (
+                    <>Nobody&apos;s on the other side yet. If nobody joins, everyone gets their stake back.</>
+                  ) : (
+                    <>
+                      Only <span className="num text-fg">{money(matched)}</span> of your {money(amount)} is matched by the other side. The other{" "}
+                      {money(amount - matched)} comes back to you either way, unless more people take the other side.
+                    </>
+                  )}
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>
