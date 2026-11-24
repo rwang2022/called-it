@@ -67,7 +67,7 @@ export function SidePicker({
 }) {
   const nothingPicked = value === null || !options.some((o) => o.key === value);
   return (
-    <div role="radiogroup" className={kind === "binary" ? "grid grid-cols-2 gap-2.5" : "grid gap-2"}>
+    <div role="radiogroup" className={kind === "binary" ? "grid grid-cols-2 gap-2.5" : "grid grid-cols-[minmax(0,1fr)] gap-2"}>
       {options.map((o, i) => {
         const c = optionColor(kind, i);
         const on = o.key === value;
@@ -81,7 +81,7 @@ export function SidePicker({
             disabled={blocked || disabled}
             onClick={() => onChange(o.key)}
             title={blocked ? "You can't bet against yourself" : undefined}
-            className={`flex items-center gap-3 rounded-2xl border-2 px-4 text-left font-semibold transition-all hover:brightness-125 disabled:cursor-not-allowed disabled:opacity-30 ${
+            className={`flex w-full min-w-0 items-center gap-3 rounded-2xl border-2 px-4 py-2.5 text-left font-semibold transition-all hover:brightness-125 disabled:cursor-not-allowed disabled:opacity-30 ${
               kind === "binary" ? "min-h-16 text-lg" : "min-h-[52px]"
             }`}
             style={{
@@ -98,7 +98,8 @@ export function SidePicker({
             >
               {on && <Check className="size-3 text-ink-950" strokeWidth={3.5} />}
             </span>
-            <span className="truncate">{o.label}</span>
+            {/* Long labels wrap rather than push the button past the card's edge. */}
+            <span className="min-w-0 break-words leading-snug [overflow-wrap:anywhere]">{o.label}</span>
           </button>
         );
       })}

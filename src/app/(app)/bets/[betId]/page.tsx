@@ -240,8 +240,8 @@ function Market({ bet }: { bet: BetVM }) {
             >
               <span className="h-9 w-1.5 shrink-0 rounded-full" style={{ background: c }} />
               <div className="min-w-0 flex-1">
-                <p className="flex items-center gap-2 font-semibold">
-                  <span className="truncate">{o.label}</span>
+                <p className="flex items-start gap-2 font-semibold leading-snug">
+                  <span className="min-w-0 break-words [overflow-wrap:anywhere]">{o.label}</span>
                   {won && <Trophy className="size-4 shrink-0 text-gold" />}
                 </p>
                 <p className="text-xs text-muted">
