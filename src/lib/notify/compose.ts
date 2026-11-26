@@ -121,13 +121,14 @@ export const copy = {
     return asJudge
       ? {
           title: `${firstName(creator.name)} asked you to judge`,
-          body: `${q(bet.title)} in ${clip(groupName, 40)}. You'll make the call when it's due.`,
+          // The whole question (up to 140 chars): the phone truncates if it must.
+          body: `“${bet.title}” in ${clip(groupName, 40)}. You'll make the call when it's due.`,
           url: betUrl(bet),
           tag: betTag(bet),
         }
       : {
           title: `${firstName(creator.name)} posted a bet`,
-          body: `${q(bet.title)} in ${clip(groupName, 40)}. Get your pick in before betting closes.`,
+          body: `“${bet.title}” in ${clip(groupName, 40)}. Get your pick in before betting closes.`,
           url: betUrl(bet),
           tag: betTag(bet),
         };

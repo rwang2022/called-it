@@ -62,6 +62,8 @@ describe("new bets", () => {
   it("tells a named judge they're judging", () => {
     expect(copy.newBet(bet, { name: "Sam Okafor" }, "The Group Chat", true).title).toBe("Sam asked you to judge");
     expect(copy.newBet(bet, { name: "Sam Okafor" }, "The Group Chat", false).body).toContain("The Group Chat");
+    const long = { id: "b2", title: "Will " + "x".repeat(120) + " happen?" };
+    expect(copy.newBet(long, { name: "Sam" }, "G", false).body).toContain(long.title);
   });
 });
 
