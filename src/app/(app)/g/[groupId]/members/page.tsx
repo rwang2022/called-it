@@ -9,7 +9,7 @@ import { requestNow } from "@/lib/now";
 import { OnlineDot } from "@/components/presence/presence";
 import { Avatar } from "@/components/ui/avatar";
 import { CopyInvite } from "@/components/group/group-chrome";
-import { LeaveGroupButton, RemoveMemberButton, RenameGroupForm, ResetInviteButton } from "@/components/group/member-actions";
+import { LeaveGroupButton, NewBetPushToggle, RemoveMemberButton, RenameGroupForm, ResetInviteButton } from "@/components/group/member-actions";
 
 export const metadata = { title: "Members" };
 
@@ -77,6 +77,10 @@ export default async function MembersPage({ params }: { params: Promise<{ groupI
             <RenameGroupForm groupId={groupId} name={group.name} hue={group.hue} />
           </section>
         )}
+        <section className="surface p-5">
+          <h2 className="eyebrow mb-3">Your notifications</h2>
+          <NewBetPushToggle groupId={groupId} on={!(members.find((m) => m.id === user.id)?.muteNewBets ?? false)} />
+        </section>
         <section className="surface p-5">
           <h2 className="eyebrow mb-3">Leave</h2>
           <p className="mb-4 text-sm text-muted">You can leave once you have no live bets and your balance is square.</p>

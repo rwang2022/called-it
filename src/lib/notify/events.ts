@@ -4,6 +4,7 @@ import { db } from "../db";
 import {
   betOptions,
   bets,
+  groupMembers,
   groups,
   notificationMarks,
   payments,
@@ -87,6 +88,36 @@ export function noticeSettled(betId: string) {
     return rows
       .filter((r) => r.userId !== CLAUDE_ID)
       .flatMap((r) => notices(bet, [r.userId], "settled", copy.settled(ref, r, label)));
+  });
+}
+
+/**
+ * A new bet was posted: tell the rest of the group, except anyone who muted new
+ * bets there. A named judge hears "asked you to judge" instead; a challenged
+ * opponent's "challenged you" outranks this and replaces it.
+ */
+export function noticeNewBet(betId: string) {
+  queueNotices(async () => {
+    const bet = await loadBet(betId);
+    if (!bet || bet.status !== "open") return [];
+    const [members, group, people] = await Promise.all([
+      db
+        .select({ userId: groupMembers.userId })
+        .from(groupMembers)
+        .where(and(eq(groupMembers.groupId, bet.groupId), eq(groupMembers.muteNewBets, false), ne(groupMembers.userId, bet.creatorId))),
+      db.select({ name: groups.name }).from(groups).where(eq(groups.id, bet.groupId)).get(),
+      usersById([bet.creatorId]),
+    ]);
+    const creator = people.get(bet.creatorId) ?? unknown;
+    const groupName = group?.name ?? "your group";
+    return humans(members.map((m) => m.userId)).map((userId) => ({
+      userId,
+      groupId: bet.groupId,
+      kind: "newbet" as const,
+      subject: bet.id,
+      actorId: bet.creatorId,
+      payload: copy.newBet(bet, creator, groupName, bet.judgeMode === "person" && bet.judgeId === userId),
+    }));
   });
 }
 

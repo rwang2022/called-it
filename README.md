@@ -135,6 +135,7 @@ The full version is in the app at `/how-it-works`. In short:
 | The receiver | Someone records "I paid you" |
 | Each participant | A bet they're in settles, with their own result |
 | Participants | Betting closes and Claude's sealed pick is revealed |
+| Everyone else in the group | A new bet is posted (a named judge hears "asked you to judge"). Mutable per group from the Members tab |
 
 Rules: nobody is notified about their own action, only current group members are notified, and one action sends at most one push per person (several updates collapse into one summary). Pushes are built after the response is sent (`after()`), so they never slow an action down. Code: `src/lib/notify/` (`compose.ts` is the pure, unit-tested part), the service worker is `public/sw.js`, and subscriptions live in `push_subscriptions`. Signing out removes that device's subscription.
 

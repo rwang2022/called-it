@@ -51,6 +51,20 @@ describe("planDeliveries", () => {
   });
 });
 
+describe("new bets", () => {
+  it("a challenge about the same new bet replaces the 'posted a bet' push", () => {
+    const plan = planDeliveries(
+      [n({ userId: "jo", kind: "newbet", payload: { title: "posted", body: "", url: "/" } }), n({ userId: "jo", kind: "challenge", payload: { title: "challenged", body: "", url: "/" } })],
+      everyone,
+    );
+    expect(plan.get("jo")!.title).toBe("challenged");
+  });
+  it("tells a named judge they're judging", () => {
+    expect(copy.newBet(bet, { name: "Sam Okafor" }, "The Group Chat", true).title).toBe("Sam asked you to judge");
+    expect(copy.newBet(bet, { name: "Sam Okafor" }, "The Group Chat", false).body).toContain("The Group Chat");
+  });
+});
+
 describe("copy", () => {
   it("phrases settlements from the recipient's side", () => {
     const money = { ...bet, money: true };

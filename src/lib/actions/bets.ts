@@ -25,7 +25,7 @@ import { advanceBet, openDispute, proposeOutcome } from "../server/lifecycle";
 import { claudeEnabled } from "../claude/agent";
 import { runClaudePredict, runClaudeResolve } from "../claude/jobs";
 import { withNotifications } from "../notify";
-import { noticeChallenge } from "../notify/events";
+import { noticeChallenge, noticeNewBet } from "../notify/events";
 import { actionMember, actionUser, fail, run } from "./result";
 
 const MIN_STAKE = 100; // $1
@@ -185,7 +185,10 @@ export async function createBet(input: CreateBetInput) {
       ...(myPosition ? [db.insert(positions).values(myPosition)] : []),
     ]);
     await logActivity({ groupId: b.groupId, betId, actorId: user.id, type: "bet_created" });
-    if (b.kind === "challenge" && b.opponentId) await withNotifications(user.id, async () => noticeChallenge(betId));
+    await withNotifications(user.id, async () => {
+      noticeNewBet(betId);
+      if (b.kind === "challenge" && b.opponentId) noticeChallenge(betId);
+    });
     if (wantsClaude) after(() => runClaudePredict(betId));
     return betId;
   });

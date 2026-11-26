@@ -15,7 +15,7 @@ export type PushPayload = {
   tag?: string;
 };
 
-export type NoticeKind = "settled" | "vote" | "review" | "judge" | "challenge" | "payment" | "reveal";
+export type NoticeKind = "settled" | "vote" | "review" | "judge" | "challenge" | "payment" | "reveal" | "newbet";
 
 /**
  * When one action produces several notices about the same thing for the same
@@ -30,6 +30,8 @@ const PRIORITY: Record<NoticeKind, number> = {
   challenge: 3,
   payment: 2,
   reveal: 1,
+  // Lowest: a challenge (or anything else) about the same new bet replaces it.
+  newbet: 0,
 };
 
 const ACTIONABLE = new Set<NoticeKind>(["vote", "review", "judge", "challenge", "payment"]);
@@ -113,6 +115,22 @@ export const copy = {
       url: betUrl(bet),
       tag: betTag(bet),
     };
+  },
+
+  newBet(bet: BetRef, creator: { name: string }, groupName: string, asJudge: boolean): PushPayload {
+    return asJudge
+      ? {
+          title: `${firstName(creator.name)} asked you to judge`,
+          body: `${q(bet.title)} in ${clip(groupName, 40)}. You'll make the call when it's due.`,
+          url: betUrl(bet),
+          tag: betTag(bet),
+        }
+      : {
+          title: `${firstName(creator.name)} posted a bet`,
+          body: `${q(bet.title)} in ${clip(groupName, 40)}. Get your pick in before betting closes.`,
+          url: betUrl(bet),
+          tag: betTag(bet),
+        };
   },
 
   challenged(bet: BetRef, challenger: { name: string }, task: string | null): PushPayload {

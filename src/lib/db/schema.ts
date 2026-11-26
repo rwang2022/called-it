@@ -87,6 +87,8 @@ export const groupMembers = sqliteTable(
       .references(() => users.id, { onDelete: "cascade" }),
     role: text("role", { enum: ["owner", "member"] }).notNull().default("member"),
     joinedAt: ts("joined_at").notNull().default(now),
+    /** Skip "new bet posted" pushes for this group (everything else still arrives). */
+    muteNewBets: integer("mute_new_bets", { mode: "boolean" }).notNull().default(false),
   },
   (t) => [primaryKey({ columns: [t.groupId, t.userId] }), index("gm_user_idx").on(t.userId)],
 );

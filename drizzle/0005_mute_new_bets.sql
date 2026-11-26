@@ -1,0 +1,1 @@
+ALTER TABLE `group_members` ADD `mute_new_bets` integer DEFAULT false NOT NULL;

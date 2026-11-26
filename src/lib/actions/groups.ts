@@ -130,3 +130,14 @@ export async function removeMember(groupId: string, userId: string) {
   });
 }
 
+/** Turn "new bet posted" pushes on or off for one group (only for yourself). */
+export async function setNewBetPush(groupId: string, on: boolean) {
+  return run(async () => {
+    const { user } = await actionMember(groupId);
+    await db
+      .update(groupMembers)
+      .set({ muteNewBets: !z.boolean().parse(on) })
+      .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.userId, user.id)));
+    refresh();
+  });
+}
