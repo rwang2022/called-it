@@ -138,7 +138,7 @@ export default async function LeaderboardPage({ params, searchParams }: Props) {
                       r.user.id === user.id ? "bg-iris/[0.06]" : ""
                     }`}
                   >
-                    <span className="num text-sm text-faint">{i + 1}</span>
+                    <span className="display text-xl italic text-faint">{i + 1}</span>
                     <span className="flex min-w-0 items-center gap-3">
                       <Avatar user={r.user} size="md" />
                       <span className="min-w-0">
@@ -211,8 +211,8 @@ function Podium({ rows, by }: { rows: LeaderRow[]; by: string }) {
                 {rank + 1}
               </span>
             </div>
-            <p className="max-w-full truncate font-semibold">{r.user.isBot ? "Claude" : firstName(r.user.name)}</p>
-            <p className="num text-2xl font-semibold">{headline(r, by)}</p>
+            <p className="display max-w-full truncate text-xl">{r.user.isBot ? "Claude" : firstName(r.user.name)}</p>
+            <p className="display text-[2rem] leading-none">{headline(r, by)}</p>
             <div
               className={`mt-3 w-full rounded-t-2xl border border-b-0 border-white/[0.08] ${heights[i]}`}
               style={{ background: `linear-gradient(180deg, color-mix(in oklab, ${medal[rank]} 18%, transparent), transparent)` }}
@@ -260,7 +260,7 @@ function JudgesBoard({ rows }: { rows: { user: { id: string; name: string; image
       <ol className="divide-y divide-white/[0.05]">
         {rows.map((r, i) => (
           <li key={r.user.id} className="flex items-center gap-3 px-5 py-4">
-            <span className="num w-6 text-sm text-faint">{i + 1}</span>
+            <span className="display w-6 text-xl italic text-faint">{i + 1}</span>
             <Avatar user={r.user} size="md" />
             <div className="min-w-0 flex-1">
               <p className="truncate font-semibold">{r.user.isBot ? "Claude" : firstName(r.user.name)}</p>

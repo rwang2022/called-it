@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Ban, BadgeCheck, CircleSlash, ExternalLink, Gavel, Globe, Lock, Scale, Sparkles, Swords, Trophy, UserRound } from "lucide-react";
+import { ArrowLeft, Ban, BadgeCheck, CircleSlash, ExternalLink, Gavel, Lock, Scale, Sparkles, Swords, Trophy, UserRound } from "lucide-react";
 import { betOutlook, betScores } from "@/lib/data/stats";
 import { edgePoints, type ScoredPick } from "@/lib/engine/rating";
 import { RatingChecklist } from "@/components/bet/rating-checklist";
@@ -16,10 +16,10 @@ import { Avatar } from "@/components/ui/avatar";
 import { ClaudeGlyph } from "@/components/ui/avatar";
 import { CategoryPicker } from "@/components/bet/category-picker";
 import { Countdown } from "@/components/ui/countdown";
-import { StatusPill } from "@/components/bet/status-pill";
 import { BinaryBar } from "@/components/bet/odds";
 import { optionColor } from "@/components/bet/palette";
 import { PositionForm } from "@/components/bet/position-form";
+import { MarketPick } from "@/components/bet/market-pick";
 import { CallPanel } from "@/components/bet/call-panel";
 import { ReviewPanel } from "@/components/bet/review-panel";
 import {
@@ -32,6 +32,8 @@ import {
   WinConfetti,
 } from "@/components/bet/small-actions";
 import { requestNow } from "@/lib/now";
+import { HueGlow, Slip } from "@/components/ui/slip";
+import { smartQuotes, ticketNumber } from "@/lib/ticket-art";
 
 export const maxDuration = 300;
 
@@ -121,15 +123,12 @@ export default async function BetPage({ params, searchParams }: Props) {
         </div>
       )}
 
+      {/* The group's own light, as on the shared slip */}
+      <HueGlow hue={bet.group.hue} />
+
       <header className="mb-8 animate-rise">
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <CategoryPicker betId={bet.id} category={bet.category} />
-          <StatusPill phase={bet.phase} closesAt={bet.closesAt} resolvesAt={bet.resolvesAt} reviewDeadline={bet.reviewDeadline} voteDeadline={bet.voteDeadline} now={now} />
-          {bet.isPublic && (
-            <span className="chip">
-              <Globe className="size-3.5" /> Public event
-            </span>
-          )}
           {rating &&
             (rating.status === "rated" ? (
               <span className="chip border-yes/30 bg-yes/10 text-yes" title="This bet counts toward everyone's forecasting scores.">
@@ -144,17 +143,35 @@ export default async function BetPage({ params, searchParams }: Props) {
                 <CircleSlash className="size-3.5" /> Unrated
               </span>
             ))}
-          <span className="chip">{bet.stakeMode === "money" ? (bet.kind === "challenge" ? `${money(bet.stakeCents)} stake` : bet.customStakes ? "Pick your stake" : `${money(bet.stakeCents)} each`) : "Bragging rights"}</span>
         </div>
-        <h1 className="display text-[2.35rem] leading-[1.02] sm:text-[3.4rem]">{bet.title}</h1>
-        {bet.description && <p className="mt-4 max-w-3xl whitespace-pre-line text-[1.02rem] leading-relaxed text-soft">{bet.description}</p>}
-        <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted">
-          <Person label="Posted by" user={bet.creator} />
-          {bet.judge && (
-            <Person label="Judge" user={bet.judge} icon={<Gavel className="size-3.5" />} />
-          )}
-          {bet.subject && <Person label="About" user={bet.subject} icon={<UserRound className="size-3.5" />} />}
-        </div>
+
+        {/* The bet itself, drawn as the same wager slip its shared link unfurls as */}
+        <Slip
+          hue={bet.group.hue}
+          split="md"
+          bodyClassName="px-6 pb-7 pt-7 sm:px-10 sm:pb-9 sm:pt-9"
+          stubClassName="px-6 py-6 sm:px-10 md:w-[232px] md:px-8 md:py-9"
+          stub={<BetStub bet={bet} now={now} />}
+        >
+          <p className="eyebrow" style={{ color: `oklch(0.82 0.1 ${bet.group.hue})` }}>
+            {bet.kind === "challenge" ? "A challenge" : bet.kind === "multi" ? "Multiple choice" : "Yes or no"}
+            {bet.isPublic && " · Public event"}
+          </p>
+          <h1 className="display relative mt-3 text-[2.3rem] leading-[1.05] sm:text-[3.2rem]">
+            <span aria-hidden className="hang-quote">
+              “
+            </span>
+            {smartQuotes(bet.title)}
+          </h1>
+          {bet.description && <p className="mt-4 max-w-3xl whitespace-pre-line text-[1.02rem] leading-relaxed text-soft">{bet.description}</p>}
+          <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted">
+            <Person label="Posted by" user={bet.creator} />
+            {bet.judge && (
+              <Person label="Judge" user={bet.judge} icon={<Gavel className="size-3.5" />} />
+            )}
+            {bet.subject && <Person label="About" user={bet.subject} icon={<UserRound className="size-3.5" />} />}
+          </div>
+        </Slip>
         {rating && rating.status !== "rated" && (
           <p className="mt-4 flex max-w-3xl items-start gap-2 text-sm text-muted">
             <CircleSlash className="mt-0.5 size-4 shrink-0" />
@@ -179,7 +196,7 @@ export default async function BetPage({ params, searchParams }: Props) {
             </div>
           )}
           <div className="order-2 lg:order-none">
-            <Market bet={bet} />
+            <Market bet={bet} canPick={canTake} viewerIsSubject={bet.subject?.id === user.id} />
           </div>
           <div className="order-4 empty:hidden lg:order-none">
             <ClaudeCard bet={bet} raw={{ judgeMode: raw.judgeMode, claudeResolve: raw.claudeResolve }} now={now} claudeOn={claudeEnabled()} />
@@ -224,6 +241,61 @@ export default async function BetPage({ params, searchParams }: Props) {
         </aside>
       </div>
     </article>
+  );
+}
+
+/**
+ * The slip's stub: where the bet stands, in the shared card's words, with live
+ * countdowns for members, the stake, and a ticket number (a hash, not the id).
+ */
+function BetStub({ bet, now }: { bet: BetVM; now: number }) {
+  const cd = (to: number | null) => <Countdown to={to ?? now} serverNow={now} className="font-medium text-fg" />;
+  const s =
+    bet.phase === "open"
+      ? { kicker: "Betting", word: "Open", color: "var(--color-yes)", detail: <>closes in {cd(bet.closesAt)}</> }
+      : bet.phase === "locked"
+        ? { kicker: "Betting", word: "Closed", color: "var(--color-soft)", detail: <>result in {cd(bet.resolvesAt)}</> }
+        : bet.phase === "awaiting"
+          ? { kicker: "The result", word: "Due", color: "var(--color-gold)", detail: <>waiting on the call</> }
+          : bet.phase === "proposed"
+            ? { kicker: "The call", word: "Called", color: "var(--color-sky)", detail: <>final in {cd(bet.reviewDeadline)}</> }
+            : bet.phase === "disputed"
+              ? { kicker: "The call", word: "Disputed", color: "var(--color-no)", detail: <>vote ends in {cd(bet.voteDeadline)}</> }
+              : bet.phase === "settled"
+                ? {
+                    kicker: "The result",
+                    word: "Settled",
+                    color: "var(--color-gold)",
+                    detail: bet.outcome ? <>{outcomeLabel(bet, bet.outcome)}</> : <>the call stands</>,
+                  }
+                : { kicker: "Betting", word: "Called off", color: "var(--color-faint)", detail: <>no bet</> };
+  const stake =
+    bet.stakeMode === "money"
+      ? bet.kind === "challenge"
+        ? `${money(bet.stakeCents)} stake`
+        : bet.customStakes
+          ? "Pick your stake"
+          : `${money(bet.stakeCents)} each`
+      : "Bragging rights";
+  const serial = <p className="num shrink-0 text-xs tracking-[0.18em] text-faint">№ {ticketNumber(bet.id)}</p>;
+  return (
+    <div className="flex h-full flex-col gap-5">
+      <div className="hidden md:block">{serial}</div>
+      <div className="flex items-end justify-between gap-6 md:flex-1 md:items-center">
+        <div className="min-w-0">
+          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-muted">{s.kicker}</p>
+          <p className={`display mt-1 italic leading-none ${s.word.length > 7 ? "text-[2.3rem]" : "text-[2.75rem]"}`} style={{ color: s.color }}>
+            {s.word}
+          </p>
+          <p className="mt-2 text-sm text-soft">{s.detail}</p>
+        </div>
+        <div className="md:hidden">{serial}</div>
+      </div>
+      <p className="flex items-baseline justify-between gap-3 border-t border-white/[0.08] pt-3 text-xs">
+        <span className="font-semibold uppercase tracking-[0.2em] text-muted">Stake</span>
+        <span className="num text-sm text-soft">{stake}</span>
+      </p>
+    </div>
   );
 }
 
@@ -286,14 +358,17 @@ function Person({ label, user, icon }: { label: string; user: BetVM["creator"]; 
 
 /* ──────────────────────────── Market ──────────────────────────── */
 
-function Market({ bet }: { bet: BetVM }) {
+function Market({ bet, canPick = false, viewerIsSubject = false }: { bet: BetVM; canPick?: boolean; viewerIsSubject?: boolean }) {
   if (bet.kind === "challenge") return <ChallengeMarket bet={bet} />;
   const total = bet.options.reduce((a, o) => a + o.count, 0);
   const money_ = bet.stakeMode === "money";
   return (
     <section className="surface p-5 sm:p-6">
-      <div className="mb-5 flex items-baseline justify-between">
-        <h2 className="eyebrow">The market</h2>
+      <div className="mb-5 flex items-baseline justify-between gap-3">
+        <div>
+          <h2 className="eyebrow">The market</h2>
+          {canPick && <p className="mt-1 text-xs text-iris">Tap a side to bet on it</p>}
+        </div>
         <span className="text-sm text-muted">
           {money_ ? (
             <>
@@ -312,10 +387,13 @@ function Market({ bet }: { bet: BetVM }) {
         {bet.options.map((o, i) => {
           const c = optionColor(bet.kind, i);
           const won = bet.status === "settled" && bet.outcome?.type === "option" && bet.outcome.optionId === o.id;
+          // The subject of a yes/no bet can only back themselves, so "No" isn't a tap target for them.
+          const pickable = canPick && !(bet.kind === "binary" && viewerIsSubject && i !== 0);
+          const mine = bet.mine?.optionId === o.id;
           return (
             <div
               key={o.id}
-              className="flex items-center gap-3 rounded-2xl border p-3.5"
+              className={`group relative flex items-center gap-3 rounded-2xl border p-3.5 ${pickable ? "transition-colors" : ""}`}
               style={{
                 borderColor: won ? c : "rgb(255 255 255 / .07)",
                 background: won ? `color-mix(in oklab, ${c} 10%, transparent)` : "rgb(255 255 255 / .02)",
@@ -331,6 +409,14 @@ function Market({ bet }: { bet: BetVM }) {
                   {o.count} {o.count === 1 ? "backer" : "backers"}
                   {o.crowd !== null && <> · crowd says <span className="num text-soft">{pct(o.crowd)}</span></>}
                 </p>
+                {pickable && (
+                  <p
+                    className={`mt-1 text-xs font-semibold transition-opacity ${mine ? "opacity-100" : "opacity-60 group-hover:opacity-100 group-focus-within:opacity-100"}`}
+                    style={{ color: c }}
+                  >
+                    {mine ? "Your pick · tap to change" : `Bet ${o.label.length > 24 ? "this" : o.label} →`}
+                  </p>
+                )}
               </div>
               <div className="flex -space-x-1.5">
                 {o.backers.slice(0, 4).map((u) => (
@@ -343,6 +429,7 @@ function Market({ bet }: { bet: BetVM }) {
                   <p className="num text-xs text-muted">{o.multiplier ? `${o.multiplier.toFixed(2)}×` : "—"}</p>
                 </div>
               )}
+              {pickable && <MarketPick optionId={o.id} label={o.label} mine={mine} />}
             </div>
           );
         })}
@@ -572,7 +659,7 @@ function Outcome({
         <p className="eyebrow relative mb-1 flex items-center gap-2 text-gold">
           {bet.outcome.type === "void" ? <Ban className="size-4" /> : <Trophy className="size-4" />} Final result
         </p>
-        <p className="display relative text-4xl">{outcomeLabel(bet, bet.outcome)}</p>
+        <p className="display relative text-4xl italic">{outcomeLabel(bet, bet.outcome)}</p>
         {bet.proposalNote && <p className="relative mt-2 whitespace-pre-line text-sm text-soft">{linkify(bet.proposalNote)}</p>}
         <p className="relative mt-2 text-xs text-faint">
           Called by {bet.proposedBy?.isBot ? "Claude" : bet.proposedBy ? firstName(bet.proposedBy.name) : "the judge"} ·{" "}

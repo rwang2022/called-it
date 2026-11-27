@@ -28,7 +28,7 @@ export default async function LedgerPage({ params }: { params: Promise<{ groupId
             style={{ background: mine > 0 ? "rgb(52 211 153 / .14)" : mine < 0 ? "rgb(251 113 133 / .14)" : "rgb(142 125 255 / .12)" }}
           />
           <p className="eyebrow relative">Your balance</p>
-          <p className={`relative mt-1 text-5xl font-semibold tracking-tight ${mine > 0 ? "text-yes" : mine < 0 ? "text-no" : ""}`}>
+          <p className={`display relative mt-2 text-[3.6rem] leading-none ${mine > 0 ? "text-yes" : mine < 0 ? "text-no" : ""}`}>
             {mine === 0 ? "All square" : signedMoney(mine)}
           </p>
           <p className="relative mt-1 text-sm text-muted">{mine > 0 ? "The group owes you." : mine < 0 ? "You owe the group." : "Nobody owes you, and you owe nobody."}</p>

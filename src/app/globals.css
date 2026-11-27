@@ -14,8 +14,9 @@
   --color-ink-600: #2e3546;
   --color-ink-500: #414a5f;
 
-  --color-fg: #eef0f5;
-  --color-soft: #c4c9d6;
+  /* Text is warm ivory, like ink on card stock; the greys stay cool to sit on the ink. */
+  --color-fg: #f3f0e9;
+  --color-soft: #cbc9c6;
   --color-muted: #959cae;
   --color-faint: #5f6678;
 
@@ -77,10 +78,11 @@ html {
 
 body {
   background-color: var(--color-ink-950);
+  /* Low lamplight over the table: a little iris, a breath of gold, and dark everywhere else. */
   background-image:
-    radial-gradient(1200px 600px at 10% -10%, color-mix(in oklab, var(--color-iris) 14%, transparent), transparent 60%),
-    radial-gradient(900px 500px at 100% 0%, color-mix(in oklab, var(--color-sky) 9%, transparent), transparent 60%),
-    radial-gradient(800px 600px at 50% 120%, color-mix(in oklab, var(--color-iris-deep) 8%, transparent), transparent 60%);
+    radial-gradient(1100px 620px at 6% -12%, color-mix(in oklab, var(--color-iris) 11%, transparent), transparent 62%),
+    radial-gradient(760px 440px at 100% -8%, color-mix(in oklab, var(--color-gold) 5%, transparent), transparent 62%),
+    radial-gradient(900px 600px at 50% 120%, color-mix(in oklab, var(--color-iris-deep) 7%, transparent), transparent 60%);
   background-attachment: fixed;
   color: var(--color-fg);
   font-family: var(--font-sans);
@@ -118,8 +120,12 @@ select optgroup {
 }
 
 @layer components {
+  /* Light catching the top edge, as on the wager slip. Kept as a background layer so it needs no
+     positioned pseudo-element, and so a Tailwind bg-* colour on a surface still shows through. */
   .surface {
-    background: linear-gradient(180deg, rgb(255 255 255 / 0.045), rgb(255 255 255 / 0.02));
+    background:
+      linear-gradient(90deg, transparent 6%, rgb(255 255 255 / 0.1) 50%, transparent 94%) top / 100% 1px no-repeat,
+      linear-gradient(180deg, rgb(255 255 255 / 0.045), rgb(255 255 255 / 0.02));
     border: 1px solid rgb(255 255 255 / 0.075);
     border-radius: 20px;
     box-shadow:
@@ -131,7 +137,9 @@ select optgroup {
   }
   .surface-hover:hover {
     border-color: rgb(255 255 255 / 0.14);
-    background: linear-gradient(180deg, rgb(255 255 255 / 0.06), rgb(255 255 255 / 0.025));
+    background:
+      linear-gradient(90deg, transparent 6%, rgb(255 255 255 / 0.16) 50%, transparent 94%) top / 100% 1px no-repeat,
+      linear-gradient(180deg, rgb(255 255 255 / 0.06), rgb(255 255 255 / 0.025));
   }
   .surface-hover:active {
     transform: scale(0.992);
@@ -229,10 +237,11 @@ select optgroup {
     white-space: nowrap;
   }
 
+  /* Letter-spaced small caps, as printed on a ticket. */
   .eyebrow {
-    font-size: 0.72rem;
+    font-size: 0.7rem;
     font-weight: 600;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.2em;
     text-transform: uppercase;
     color: var(--color-muted);
   }
@@ -246,8 +255,9 @@ select optgroup {
     line-height: 1.02;
   }
 
+  /* Gold foil, for the word that matters: the same gold as the wordmark's full stop. */
   .text-gradient {
-    background: linear-gradient(100deg, #ffffff 10%, #cfc7ff 45%, #8fdcff 90%);
+    background: linear-gradient(100deg, #fff8e8 6%, #f6dc9c 42%, #e9b45a 78%, #c98f3c 100%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -257,6 +267,64 @@ select optgroup {
     margin-inline: -0.06em -0.16em;
     -webkit-box-decoration-break: clone;
     box-decoration-break: clone;
+  }
+
+  /* ── The wager slip ──
+     Card stock for things that are bets: the shared-link page, the bet page's header, invites.
+     Pair with <Slip> (components/ui/slip.tsx) for the perforated stub. */
+  .slip {
+    position: relative;
+    overflow: hidden;
+    border-radius: 26px;
+    border: 1px solid rgb(255 255 255 / 0.1);
+    background-image: linear-gradient(162deg, rgb(29 33 46 / 0.94), rgb(16 18 26 / 0.95) 52%, rgb(10 11 16 / 0.97));
+    box-shadow: 0 40px 90px -30px rgb(0 0 0 / 0.75);
+  }
+  .slip::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.25), transparent);
+    pointer-events: none;
+  }
+  /* The same card stock at pocket size, for a bet in a list. */
+  .slip-card {
+    border-radius: 20px;
+    border: 1px solid rgb(255 255 255 / 0.085);
+    background:
+      linear-gradient(90deg, transparent 6%, rgb(255 255 255 / 0.14) 50%, transparent 94%) top / 100% 1px no-repeat,
+      linear-gradient(162deg, rgb(27 31 43 / 0.92), rgb(16 18 25 / 0.94) 58%, rgb(11 12 17 / 0.96));
+    box-shadow: 0 24px 48px -28px rgb(0 0 0 / 0.8);
+    transition: border-color 0.2s, transform 0.25s var(--ease-spring), box-shadow 0.25s;
+  }
+  .slip-card:hover {
+    border-color: rgb(255 255 255 / 0.16);
+    box-shadow: 0 28px 56px -26px rgb(0 0 0 / 0.85);
+  }
+  .slip-card:active { transform: scale(0.992); }
+  /* Half-circle bite where a perforation meets the ticket's edge (the ticket clips the outer half). */
+  .notch {
+    position: absolute;
+    border-radius: 999px;
+    border: 1px solid rgb(255 255 255 / 0.1);
+    background: var(--color-ink-950);
+    pointer-events: none;
+  }
+  /* A guilloche rosette in currentColor: one cached file, any group's hue. */
+  .rosette {
+    aspect-ratio: 1;
+    background-color: currentColor;
+    -webkit-mask: url("/art/rosette.svg") center / contain no-repeat;
+    mask: url("/art/rosette.svg") center / contain no-repeat;
+    pointer-events: none;
+  }
+  /* The hanging opening quote on a headline: it sits in the margin so the words stay aligned. */
+  .hang-quote {
+    position: absolute;
+    left: -0.48em;
+    top: -0.06em;
+    color: var(--color-gold);
   }
 
   .skeleton {

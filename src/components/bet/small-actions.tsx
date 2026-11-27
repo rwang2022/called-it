@@ -9,6 +9,7 @@ import { useAction } from "../ui/use-action";
 import { ConfirmButton } from "../ui/confirm-button";
 import { useToast } from "../ui/toast";
 import { ClaudeGlyph } from "../ui/avatar";
+import { SHARE_LINK_VERSION } from "@/lib/ticket-art";
 
 export function ShareButton({ title }: { title: string }) {
   const toast = useToast();
@@ -18,7 +19,7 @@ export function ShareButton({ title }: { title: string }) {
       type="button"
       className="btn btn-ghost btn-sm"
       onClick={async () => {
-        const url = window.location.href.split("?")[0];
+        const url = `${window.location.origin}${window.location.pathname}?v=${SHARE_LINK_VERSION}`;
         if (navigator.share && /Mobi|Android/i.test(navigator.userAgent)) {
           try {
             await navigator.share({ title, url });
@@ -29,7 +30,7 @@ export function ShareButton({ title }: { title: string }) {
         }
         await navigator.clipboard.writeText(url);
         setCopied(true);
-        toast.success("Link copied — only group members can open it.");
+        toast.success("Link copied. It previews the question; picks stay in the group.");
         setTimeout(() => setCopied(false), 2000);
       }}
     >

@@ -14,6 +14,7 @@ import { BetCard } from "@/components/bet/bet-card";
 import { ActivityFeed } from "@/components/activity-feed";
 import { AttentionList } from "@/components/attention-list";
 import { EmptyState, SectionHeader } from "@/components/ui/section";
+import { Scorecard } from "@/components/ui/scorecard";
 import { JoinByCode } from "@/components/join-by-code";
 import { requestNow } from "@/lib/now";
 
@@ -35,7 +36,10 @@ export default async function Home() {
   if (groupIds.length === 0) {
     return (
       <div className="mx-auto max-w-xl">
-        <h1 className="display mb-2 animate-rise text-[2.8rem] leading-none">Welcome, {firstName(user.name)}.</h1>
+        <h1 className="display mb-2 animate-rise text-[2.8rem] leading-none">
+          Welcome, <em>{firstName(user.name)}</em>
+          <span className="text-gold">.</span>
+        </h1>
         <p className="mb-8 text-muted">Bets live inside groups of friends. Start one, or join with an invite link.</p>
         <EmptyState
           icon={<Users className="size-6" />}
@@ -74,21 +78,29 @@ export default async function Home() {
       <div className="min-w-0">
         <header className="mb-8 animate-rise">
           <p className="eyebrow mb-2">{greeting(tz)}</p>
-          <h1 className="display text-[2.7rem] leading-none sm:text-[3.3rem]">{firstName(user.name)}</h1>
-          <div className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-            <Stat label="Record" value={s.n ? `${s.wins}–${s.losses}` : "—"} />
-            <Stat
-              label="Net"
-              value={s.stakedCents ? signedMoney(s.netCents) : "—"}
-              tone={s.netCents > 0 ? "yes" : s.netCents < 0 ? "no" : undefined}
-            />
-            <Stat label="Edge" value={edgePoints(s.edge)} hint={s.provisional ? "provisional" : "vs the room"} />
-            <Stat
-              label="Streak"
-              value={s.streak === 0 ? "—" : `${Math.abs(s.streak)}${s.streak > 0 ? "W" : "L"}`}
-              icon={s.streak >= 3 ? <Flame className="size-4 text-gold" /> : null}
-            />
-          </div>
+          <h1 className="display text-[2.9rem] leading-none sm:text-[3.6rem]">
+            {firstName(user.name)}
+            <span className="text-gold">.</span>
+          </h1>
+          <Scorecard
+            className="mt-6"
+            items={[
+              { label: "Record", value: s.n ? `${s.wins}–${s.losses}` : "—", sub: s.n ? "won–lost" : "no calls yet" },
+              {
+                label: "Net",
+                value: s.stakedCents ? signedMoney(s.netCents) : "—",
+                sub: s.stakedCents ? "on money bets" : "no money bets",
+                tone: s.netCents > 0 ? "yes" : s.netCents < 0 ? "no" : undefined,
+              },
+              { label: "Edge", value: edgePoints(s.edge), sub: s.provisional ? "provisional" : "vs the room" },
+              {
+                label: "Streak",
+                value: s.streak === 0 ? "—" : `${Math.abs(s.streak)}${s.streak > 0 ? "W" : "L"}`,
+                sub: s.streak > 0 ? "in a row" : s.streak < 0 ? "cold spell" : "no streak",
+                mark: s.streak >= 3 ? <Flame className="size-5 text-gold" /> : null,
+              },
+            ]}
+          />
         </header>
 
         {(attention.length > 0 || pays.length > 0) && (
@@ -155,27 +167,3 @@ export default async function Home() {
   );
 }
 
-function Stat({
-  label,
-  value,
-  tone,
-  hint,
-  icon,
-}: {
-  label: string;
-  value: string;
-  tone?: "yes" | "no";
-  hint?: string;
-  icon?: React.ReactNode;
-}) {
-  return (
-    <div className="surface px-4 py-3">
-      <p className="text-xs text-muted">{label}</p>
-      <p className={`num mt-1 flex items-center gap-1.5 text-xl font-semibold ${tone === "yes" ? "text-yes" : tone === "no" ? "text-no" : ""}`}>
-        {value}
-        {icon}
-      </p>
-      {hint && <p className="text-[10px] uppercase tracking-wider text-faint">{hint}</p>}
-    </div>
-  );
-}

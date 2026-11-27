@@ -18,6 +18,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { BetCard } from "@/components/bet/bet-card";
 import { CalibrationChart, CategoryBars, PnlChart } from "@/components/charts";
 import { EmptyState, SectionHeader } from "@/components/ui/section";
+import { Scorecard } from "@/components/ui/scorecard";
 import { requestNow } from "@/lib/now";
 import { vapidPublicKey } from "@/lib/notify";
 import { NotificationSettings } from "@/components/push/notification-settings";
@@ -83,10 +84,13 @@ export default async function ProfilePage({ params, searchParams }: Props) {
   return (
     <div>
       <header className="mb-8 flex animate-rise flex-col items-start gap-5 sm:flex-row sm:items-center">
-        <Avatar user={target} size="2xl" className="shadow-2xl shadow-iris/20 ring-4 ring-white/10" />
+        <Avatar user={target} size="2xl" className="shadow-2xl shadow-iris/20 ring-4 ring-white/10 ring-offset-4 ring-offset-ink-950" />
         <div>
-          <p className="eyebrow mb-1">{isBot ? "AI forecaster" : isMe ? "Your record" : "Forecaster"}</p>
-          <h1 className="display text-[2.8rem] leading-none sm:text-[3.4rem]">{isBot ? "Claude" : target.name}</h1>
+          <p className="eyebrow mb-2">{isBot ? "AI forecaster" : isMe ? "Your record" : "Forecaster"}</p>
+          <h1 className="display text-[2.9rem] leading-none sm:text-[3.6rem]">
+            {isBot ? "Claude" : target.name}
+            <span className="text-gold">.</span>
+          </h1>
           <p className="mt-2 text-sm text-muted">
             {isBot
               ? "Researches public events and locks in sealed picks. Plays for bragging rights only."
@@ -95,27 +99,32 @@ export default async function ProfilePage({ params, searchParams }: Props) {
         </div>
       </header>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Tile label="Edge" value={edgePoints(s.edge)} sub={s.edge === null ? "no rated calls yet" : `pts vs the room · Brier ${s.brier!.toFixed(3)}`} icon={<Target className="size-4" />} />
-        <Tile label="Record" value={s.n ? `${s.wins}–${s.losses}` : "—"} sub={s.n ? `${pct(s.winRate)} hit rate` : "no calls yet"} icon={<Zap className="size-4" />} />
-        {!isBot ? (
-          <Tile
-            label="Net winnings"
-            value={s.stakedCents ? signedMoney(s.netCents) : "—"}
-            sub={s.roi === null ? "no money bets" : `${signedPct(s.roi)} ROI`}
-            tone={s.netCents > 0 ? "yes" : s.netCents < 0 ? "no" : undefined}
-            icon={<TrendingUp className="size-4" />}
-          />
-        ) : (
-          <Tile label="Upsets" value={String(s.upsets)} sub="wins against the crowd" icon={<TrendingUp className="size-4" />} />
-        )}
-        <Tile
-          label={isBot ? "Best streak" : "Follow-through"}
-          value={isBot ? `${s.bestStreak}W` : p.followThrough.n ? `${p.followThrough.passed}/${p.followThrough.n}` : "—"}
-          sub={isBot ? `current ${s.streak > 0 ? `${s.streak}W` : s.streak < 0 ? `${-s.streak}L` : "—"}` : "challenges completed"}
-          icon={isBot ? <Flame className="size-4" /> : <Swords className="size-4" />}
-        />
-      </div>
+      <Scorecard
+        items={[
+          {
+            label: "Edge",
+            value: edgePoints(s.edge),
+            sub: s.edge === null ? "no rated calls yet" : `pts vs the room · Brier ${s.brier!.toFixed(3)}`,
+            icon: <Target className="size-3.5" />,
+          },
+          { label: "Record", value: s.n ? `${s.wins}–${s.losses}` : "—", sub: s.n ? `${pct(s.winRate)} hit rate` : "no calls yet", icon: <Zap className="size-3.5" /> },
+          !isBot
+            ? {
+                label: "Net winnings",
+                value: s.stakedCents ? signedMoney(s.netCents) : "—",
+                sub: s.roi === null ? "no money bets" : `${signedPct(s.roi)} ROI`,
+                tone: s.netCents > 0 ? "yes" : s.netCents < 0 ? "no" : undefined,
+                icon: <TrendingUp className="size-3.5" />,
+              }
+            : { label: "Upsets", value: String(s.upsets), sub: "wins against the crowd", icon: <TrendingUp className="size-3.5" /> },
+          {
+            label: isBot ? "Best streak" : "Follow-through",
+            value: isBot ? `${s.bestStreak}W` : p.followThrough.n ? `${p.followThrough.passed}/${p.followThrough.n}` : "—",
+            sub: isBot ? `current ${s.streak > 0 ? `${s.streak}W` : s.streak < 0 ? `${-s.streak}L` : "—"}` : "challenges completed",
+            icon: isBot ? <Flame className="size-3.5" /> : <Swords className="size-3.5" />,
+          },
+        ]}
+      />
 
       {isMe && !isBot && <ProfileEditor user={target} />}
       {isMe && !isBot && <NotificationSettings publicKey={vapidPublicKey()} />}
@@ -130,13 +139,15 @@ export default async function ProfilePage({ params, searchParams }: Props) {
       ) : (
         <div className="mt-8 grid gap-6 lg:grid-cols-2">
           <section className="surface p-5 sm:p-6">
-            <h2 className="mb-1 font-semibold">Calibration</h2>
+            <h2 className="display mb-1 text-[1.6rem] leading-tight">Calibration</h2>
             <p className="mb-4 text-sm text-muted">{calibrationRead}</p>
             <CalibrationChart buckets={s.calibration} />
             <p className="hint mt-3">Each dot groups calls by stated confidence. Above the line: underconfident. Below: overconfident.</p>
           </section>
           <section className="surface p-5 sm:p-6">
-            <h2 className="mb-1 font-semibold">Where {isMe ? "you're" : isBot ? "it's" : "they're"} sharp</h2>
+            <h2 className="display mb-1 text-[1.6rem] leading-tight">
+              Where {isMe ? "you’re" : isBot ? "it’s" : "they’re"} <em>sharp</em>
+            </h2>
             <p className="mb-5 text-sm text-muted">Hit rate by category.</p>
             <CategoryBars
               rows={p.categories.map((c) => ({
@@ -150,27 +161,27 @@ export default async function ProfilePage({ params, searchParams }: Props) {
           {!isBot && (
             <section className="surface p-5 sm:p-6 lg:col-span-2">
               <div className="mb-4 flex items-baseline justify-between">
-                <h2 className="font-semibold">Winnings over time</h2>
-                <span className={`num text-lg font-semibold ${s.netCents > 0 ? "text-yes" : s.netCents < 0 ? "text-no" : ""}`}>{signedMoney(s.netCents)}</span>
+                <h2 className="display text-[1.6rem] leading-tight">Winnings over time</h2>
+                <span className={`display text-[1.75rem] leading-none ${s.netCents > 0 ? "text-yes" : s.netCents < 0 ? "text-no" : ""}`}>{signedMoney(s.netCents)}</span>
               </div>
               <PnlChart points={p.pnl} tz={tz} />
             </section>
           )}
           {p.headToHead.length > 0 && (
             <section className="surface p-5 sm:p-6">
-              <h2 className="mb-4 font-semibold">Head to head</h2>
+              <h2 className="display mb-4 text-[1.6rem] leading-tight">Head to head</h2>
               {(nemesis || victim) && (
                 <div className="mb-4 grid grid-cols-2 gap-2 text-sm">
                   {victim && (
                     <div className="rounded-xl bg-yes/[0.07] p-3">
-                      <p className="text-xs text-yes">Owns</p>
-                      <p className="truncate font-semibold">{victim.user.isBot ? "Claude" : firstName(victim.user.name)}</p>
+                      <p className="text-[0.66rem] font-semibold uppercase tracking-[0.2em] text-yes">Owns</p>
+                      <p className="display mt-0.5 truncate text-xl">{victim.user.isBot ? "Claude" : firstName(victim.user.name)}</p>
                     </div>
                   )}
                   {nemesis && (
                     <div className="rounded-xl bg-no/[0.07] p-3">
-                      <p className="text-xs text-no">Nemesis</p>
-                      <p className="truncate font-semibold">{nemesis.user.isBot ? "Claude" : firstName(nemesis.user.name)}</p>
+                      <p className="text-[0.66rem] font-semibold uppercase tracking-[0.2em] text-no">Nemesis</p>
+                      <p className="display mt-0.5 truncate text-xl">{nemesis.user.isBot ? "Claude" : firstName(nemesis.user.name)}</p>
                     </div>
                   )}
                 </div>
@@ -193,11 +204,13 @@ export default async function ProfilePage({ params, searchParams }: Props) {
           )}
           {!isBot && p.vsClaude && (
             <section className="surface relative overflow-hidden p-5 sm:p-6" style={{ borderColor: "color-mix(in oklab, var(--color-claude) 22%, transparent)" }}>
-              <h2 className="mb-1 font-semibold">vs. Claude</h2>
+              <h2 className="display mb-1 text-[1.6rem] leading-tight">
+                <em>vs.</em> Claude
+              </h2>
               <p className="mb-4 text-sm text-muted">On public bets you both played.</p>
               <div className="flex items-center gap-5">
                 <Avatar user={target} size="lg" />
-                <p className="num text-4xl font-semibold">
+                <p className="display text-5xl leading-none">
                   {p.vsClaude.wins}
                   <span className="text-faint">–</span>
                   {p.vsClaude.losses}
@@ -232,15 +245,3 @@ export default async function ProfilePage({ params, searchParams }: Props) {
   );
 }
 
-function Tile({ label, value, sub, icon, tone }: { label: string; value: string; sub: string; icon: React.ReactNode; tone?: "yes" | "no" }) {
-  return (
-    <div className="surface p-4">
-      <p className="flex items-center gap-1.5 text-xs text-muted">
-        {icon}
-        {label}
-      </p>
-      <p className={`mt-2 text-[1.75rem] font-semibold leading-none tracking-tight ${tone === "yes" ? "text-yes" : tone === "no" ? "text-no" : ""}`}>{value}</p>
-      <p className="mt-1.5 text-xs text-faint">{sub}</p>
-    </div>
-  );
-}

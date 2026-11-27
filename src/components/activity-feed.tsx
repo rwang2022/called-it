@@ -3,12 +3,13 @@ import type { recentActivity } from "@/lib/data/activity";
 import { firstName, money, relativeTime } from "@/lib/format";
 import { Avatar } from "./ui/avatar";
 import { LogoMark } from "./ui/logo";
+import { smartQuotes } from "@/lib/ticket-art";
 
 type Row = Awaited<ReturnType<typeof recentActivity>>[number];
 
 function describe(r: Row) {
   const who = r.actor ? firstName(r.actor.name) : "Someone";
-  const title = r.betTitle ? `“${r.betTitle}”` : "a bet";
+  const title = r.betTitle ? `“${smartQuotes(r.betTitle)}”` : "a bet";
   switch (r.type) {
     case "bet_created":
       return <><b>{who}</b> posted {title}</>;

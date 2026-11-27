@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Lock, LogOut } from "lucide-react";
 import { takePosition, withdrawPosition } from "@/lib/actions/bets";
 import { money, parseDollars, signedMoney } from "@/lib/format";
@@ -8,6 +8,7 @@ import { useAction } from "../ui/use-action";
 import { ConfirmButton } from "../ui/confirm-button";
 import { optionColor } from "./palette";
 import { FieldLabel, SidePicker } from "../ui/form-bits";
+import { PICK_EVENT } from "./market-pick";
 
 export type PositionFormBet = {
   id: string;
@@ -31,6 +32,23 @@ export function PositionForm({ bet }: { bet: PositionFormBet }) {
   const [confidence, setConfidence] = useState(mine?.confidence ?? (bet.kind === "multi" ? Math.min(90, Math.round(100 / Math.max(2, bet.options.length)) + 15) : 65));
   const [note, setNote] = useState(mine?.note ?? "");
   const [task, setTask] = useState(mine?.task ?? bet.opponentTaskSuggestion ?? "");
+  const root = useRef<HTMLDivElement>(null);
+  const [flash, setFlash] = useState(false);
+
+  // Tapping a side in the market picks it here, then brings this form into view.
+  useEffect(() => {
+    const onPick = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      const i = bet.options.findIndex((o) => o.id === id);
+      if (i < 0 || (bet.kind === "binary" && bet.subjectIsViewer && i !== 0)) return;
+      setOptionId(id);
+      setFlash(true);
+      root.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      window.setTimeout(() => setFlash(false), 1400);
+    };
+    window.addEventListener(PICK_EVENT, onPick);
+    return () => window.removeEventListener(PICK_EVENT, onPick);
+  }, [bet.options, bet.kind, bet.subjectIsViewer]);
 
   const money_ = bet.stakeMode === "money";
   const amount = !money_ ? 0 : bet.customStakes ? (parseDollars(amountText) ?? 0) : bet.stakeCents;
@@ -92,7 +110,10 @@ export function PositionForm({ bet }: { bet: PositionFormBet }) {
   const fill = bet.kind === "challenge" ? "#8e7dff" : selectedIndex >= 0 ? optionColor(bet.kind, selectedIndex) : "#8e7dff";
 
   return (
-    <div className="space-y-5">
+    <div
+      ref={root}
+      className={`space-y-5 rounded-2xl outline-offset-[10px] transition-[outline-color] duration-500 ${flash ? "outline outline-2 outline-iris/60" : "outline outline-2 outline-transparent"}`}
+    >
       {bet.kind !== "challenge" ? (
         <div>
           <FieldLabel n={1} done={sideDone} required>

@@ -7,6 +7,7 @@ import { Logo } from "@/components/ui/logo";
 import { ClaudeGlyph } from "@/components/ui/avatar";
 import { APP_NAME } from "@/lib/brand";
 import { GoogleG } from "@/components/auth/google-g";
+import { Slip } from "@/components/ui/slip";
 
 const ERRORS: Record<string, string> = {
   google_not_configured: "Google sign-in isn't configured yet. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET (see SETUP.md).",
@@ -153,7 +154,7 @@ function Feature({ n, title, claude, children }: { n: number; title: string; cla
   return (
     <li className="border-t border-white/10 pt-5">
       <div className="mb-5 flex items-center justify-between">
-        <span className="num text-xs tracking-widest text-faint">{String(n).padStart(2, "0")}</span>
+        <span className="num text-xs tracking-[0.18em] text-faint">№ {String(n).padStart(2, "0")}</span>
         {claude && (
           <span className="flex items-center gap-1.5 text-xs text-[#f3b79f]">
             <span className="inline-block size-3"><ClaudeGlyph /></span>
@@ -161,65 +162,93 @@ function Feature({ n, title, claude, children }: { n: number; title: string; cla
           </span>
         )}
       </div>
-      <h3 className="display mb-3 text-[1.7rem] leading-tight">{title}</h3>
+      <h3 className="display mb-3 text-[1.75rem] leading-tight">{title}</h3>
       <p className="max-w-[34ch] text-[0.95rem] leading-relaxed text-muted">{children}</p>
     </li>
   );
 }
 
+/** The hero: a wager slip on the table, Claude's sealed pick, and the standings. Decorative. */
 function HeroCards() {
+  const hue = 268;
   return (
-    <div className="relative mx-auto h-[460px] w-full max-w-[460px] sm:h-[520px]" aria-hidden>
-      <div className="absolute -inset-10 rounded-full bg-iris/20 blur-3xl" />
-      {/* Card 1: yes/no */}
-      <div className="surface absolute left-0 top-4 w-[86%] animate-float bg-ink-850/90 p-5 backdrop-blur-xl" style={{ ["--tilt" as string]: "-3deg" }}>
-        <div className="mb-3 flex items-center justify-between text-xs">
-          <span className="font-medium text-muted">Fitness · by Alex</span>
-          <span className="chip text-yes" style={{ borderColor: "rgb(52 211 153 / .25)", background: "rgb(52 211 153 / .08)" }}>
-            <span className="size-1.5 rounded-full bg-yes" /> Open · 9d
-          </span>
-        </div>
-        <p className="display mb-4 text-[1.6rem] leading-[1.1]">Will Sam do 10 unbroken pull-ups by New Year&apos;s?</p>
-        <div className="mb-1.5 flex justify-between text-sm font-semibold">
-          <span className="text-yes">Yes 38%</span>
-          <span className="text-no">62% No</span>
-        </div>
-        <div className="flex h-2 gap-0.5 overflow-hidden rounded-full">
-          <div className="w-[38%] rounded-l-full bg-gradient-to-r from-emerald-600 to-yes" />
-          <div className="flex-1 rounded-r-full bg-gradient-to-r from-no to-rose-600" />
-        </div>
-        <div className="mt-4 flex items-center gap-2 text-sm text-soft">
-          <Faces /> <span className="num">$115</span> <span className="text-muted">pot</span>
-        </div>
+    <div className="relative mx-auto h-[580px] w-full max-w-[470px] sm:h-[560px]" aria-hidden>
+      <div className="absolute -inset-10 rounded-full bg-iris/15 blur-3xl" />
+      <div className="absolute -right-6 top-10 size-56 rounded-full bg-gold/10 blur-3xl" />
+
+      {/* The slip */}
+      <div className="absolute left-0 top-2 w-[94%] animate-float sm:w-[88%]" style={{ ["--tilt" as string]: "-3deg" }}>
+        <Slip
+          hue={hue}
+          split="none"
+          className="rounded-[22px]"
+          bodyClassName="px-6 pb-5 pt-6"
+          stubClassName="px-6 py-4"
+          stub={
+            <div className="flex items-end justify-between gap-4">
+              <div>
+                <p className="text-[0.6rem] font-semibold uppercase tracking-[0.2em] text-muted">Betting</p>
+                <p className="display mt-0.5 text-[2rem] italic leading-none text-yes">Open</p>
+                <p className="mt-1 text-xs text-soft">closes in 9d</p>
+              </div>
+              <div className="text-right">
+                <p className="num text-[0.65rem] tracking-[0.18em] text-faint">№ 0412·07</p>
+                <p className="mt-2 flex items-center justify-end gap-2 text-sm text-soft">
+                  <Faces /> <span className="num">$115</span> <span className="text-muted">pot</span>
+                </p>
+              </div>
+            </div>
+          }
+        >
+          <p className="text-[0.62rem] font-semibold uppercase tracking-[0.2em]" style={{ color: `oklch(0.82 0.1 ${hue})` }}>
+            A bet in The Group Chat
+          </p>
+          <p className="display relative mt-2.5 text-[1.75rem] leading-[1.08]">
+            <span className="hang-quote">“</span>Will Sam do 10 unbroken pull-ups by New Year’s?
+          </p>
+          <div className="mb-1.5 mt-5 flex justify-between text-sm font-semibold">
+            <span className="text-yes">Yes 38%</span>
+            <span className="text-no">62% No</span>
+          </div>
+          <div className="flex h-2 gap-0.5 overflow-hidden rounded-full">
+            <div className="w-[38%] rounded-l-full bg-gradient-to-r from-emerald-600 to-yes" />
+            <div className="flex-1 rounded-r-full bg-gradient-to-r from-no to-rose-600" />
+          </div>
+        </Slip>
       </div>
-      {/* Card 2: Claude sealed */}
+
+      {/* Claude's sealed pick */}
       <div
-        className="surface absolute right-0 top-[52%] w-[64%] animate-float bg-ink-850/90 p-4 backdrop-blur-xl [animation-delay:-2.5s]"
+        className="slip-card absolute right-0 top-[51%] w-[76%] animate-float p-4 [animation-delay:-2.5s] sm:top-[55%] sm:w-[62%]"
         style={{ ["--tilt" as string]: "4deg" }}
       >
         <div className="flex items-center gap-3">
-          <span className="inline-block size-9 shrink-0"><ClaudeGlyph /></span>
+          <span className="relative inline-block size-10 shrink-0">
+            <ClaudeGlyph />
+            <span className="absolute -bottom-1 -right-1 grid size-5 place-items-center rounded-full bg-ink-900 ring-2 ring-ink-900">
+              <Lock className="size-3 text-claude" />
+            </span>
+          </span>
           <div>
-            <p className="text-sm font-semibold">Claude locked in a pick</p>
-            <p className="flex items-center gap-1 text-xs text-muted">
-              <Lock className="size-3" /> Sealed until betting closes
-            </p>
+            <p className="display text-[1.2rem] leading-tight">Claude locked in a pick</p>
+            <p className="text-xs text-muted">Sealed until betting closes</p>
           </div>
         </div>
       </div>
-      {/* Card 3: leaderboard */}
+
+      {/* The standings */}
       <div
-        className="surface absolute bottom-0 left-[6%] w-[60%] animate-float bg-ink-850/90 p-4 backdrop-blur-xl [animation-delay:-4.5s]"
+        className="slip-card absolute bottom-0 left-[3%] w-[68%] animate-float p-4 [animation-delay:-4.5s] sm:left-[5%] sm:w-[60%]"
         style={{ ["--tilt" as string]: "-2deg" }}
       >
-        <p className="eyebrow mb-3">Forecast skill</p>
+        <p className="eyebrow mb-3 text-[0.62rem]">Forecast skill</p>
         {[
           ["Priya", 0.41, "#fbbf24"],
           ["Claude", 0.33, "#e8845f"],
           ["Sam", 0.18, "#a5b4fc"],
         ].map(([n, v, c], i) => (
           <div key={n as string} className="mb-2 flex items-center gap-2.5 text-sm last:mb-0">
-            <span className="num w-3 text-faint">{i + 1}</span>
+            <span className="display w-3 text-base italic text-faint">{i + 1}</span>
             <span className="w-14 font-medium">{n as string}</span>
             <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/[0.06]">
               <div className="h-full rounded-full" style={{ width: `${(v as number) * 220}%`, background: c as string }} />
@@ -239,7 +268,7 @@ function Faces() {
       {hues.map((h, i) => (
         <span
           key={h}
-          className={`size-6 rounded-full ring-2 ring-ink-850 ${i ? "-ml-2" : ""}`}
+          className={`size-5 rounded-full ring-2 ring-ink-900 ${i ? "-ml-1.5" : ""}`}
           style={{ background: `linear-gradient(135deg, oklch(0.7 0.15 ${h}), oklch(0.5 0.17 ${h + 40}))` }}
         />
       ))}

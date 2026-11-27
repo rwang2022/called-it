@@ -21,6 +21,7 @@ export function StatusPill({
   now,
   compact = false,
   short = false,
+  bare = false,
 }: {
   phase: Phase;
   closesAt: number;
@@ -31,6 +32,8 @@ export function StatusPill({
   compact?: boolean;
   /** Countdown without words ("· 3d 4h"), for tight spaces. */
   short?: boolean;
+  /** Just the coloured words, no pill around them (on a bet card's stub). */
+  bare?: boolean;
 }) {
   const s = STYLE[phase];
   const Icon =
@@ -59,12 +62,16 @@ export function StatusPill({
             : null;
   return (
     <span
-      className="chip gap-1.5"
-      style={{
-        color: s.color,
-        background: `color-mix(in oklab, ${s.color} 10%, transparent)`,
-        borderColor: `color-mix(in oklab, ${s.color} 24%, transparent)`,
-      }}
+      className={bare ? "inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-semibold" : "chip gap-1.5"}
+      style={
+        bare
+          ? { color: s.color }
+          : {
+              color: s.color,
+              background: `color-mix(in oklab, ${s.color} 10%, transparent)`,
+              borderColor: `color-mix(in oklab, ${s.color} 24%, transparent)`,
+            }
+      }
     >
       {phase === "open" ? (
         <span className="relative flex size-1.5">

@@ -5,6 +5,7 @@ import { firstName, signedMoney } from "@/lib/format";
 import { Avatar, AvatarStack, ClaudeGlyph } from "../ui/avatar";
 import { CategoryIcon } from "../ui/category";
 import { categoryOf } from "@/lib/categories";
+import { smartQuotes } from "@/lib/ticket-art";
 import { BinaryBar, MultiBars, PotLabel } from "./odds";
 import { StatusPill } from "./status-pill";
 
@@ -44,20 +45,55 @@ function ClaudeBadge({ bet }: { bet: BetVM }) {
   );
 }
 
+/**
+ * A bet in a list: a small wager slip. The question and the market on the
+ * ticket, who's in and what's riding on it on a perforated stub, tinted with
+ * the group's colour.
+ */
 export function BetCard({ bet, now, showGroup = false, index = 0 }: { bet: BetVM; now: number; showGroup?: boolean; index?: number }) {
   const people = bet.positions.map((p) => p.user);
+  const h = bet.group.hue;
   return (
     <Link
       href={`/bets/${bet.id}`}
-      className="surface surface-hover group block animate-rise p-4 sm:p-5"
+      className="slip-card group relative flex animate-rise flex-col overflow-hidden"
       style={{ animationDelay: `${Math.min(index, 8) * 45}ms` }}
     >
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2 text-xs text-muted">
-          <CategoryIcon id={bet.category} className="size-4 shrink-0" />
-          <span className="truncate font-medium text-soft">{showGroup ? bet.group.name : categoryOf(bet.category).label}</span>
+      <div className="flex-1 p-4 pb-4 sm:p-5 sm:pb-5">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <div
+            className="flex min-w-0 items-center gap-2 text-[0.66rem] font-semibold uppercase tracking-[0.18em]"
+            style={{ color: showGroup ? `oklch(0.82 0.1 ${h})` : "var(--color-muted)" }}
+          >
+            <CategoryIcon id={bet.category} className="size-3.5 shrink-0" />
+            <span className="truncate">{showGroup ? bet.group.name : categoryOf(bet.category).label}</span>
+          </div>
+          <span className="flex shrink-0 items-center gap-1.5">
+            <ClaudeBadge bet={bet} />
+            <MyPick bet={bet} />
+          </span>
         </div>
+
+        <h3 className="display mb-4 line-clamp-3 text-[1.5rem] leading-[1.1] text-fg transition-colors group-hover:text-white sm:text-[1.65rem]">
+          {smartQuotes(bet.title)}
+        </h3>
+
+        <div>
+          {bet.kind === "binary" && <BinaryBar bet={bet} />}
+          {bet.kind === "multi" && <MultiBars bet={bet} />}
+          {bet.kind === "challenge" && <ChallengeLine bet={bet} />}
+        </div>
+      </div>
+
+      {/* The stub, behind a perforation */}
+      <div
+        className="relative flex flex-wrap items-center gap-x-2.5 gap-y-2 border-t-2 border-dashed border-white/[0.1] px-4 py-3 text-sm sm:px-5"
+        style={{ backgroundImage: `linear-gradient(180deg, oklch(0.6 0.12 ${h} / 0.03), oklch(0.6 0.14 ${h} / 0.09))` }}
+      >
+        <span aria-hidden className="notch -left-2 -top-[9px] size-4" />
+        <span aria-hidden className="notch -right-2 -top-[9px] size-4" />
         <StatusPill
+          bare
           short
           phase={bet.phase}
           closesAt={bet.closesAt}
@@ -66,26 +102,11 @@ export function BetCard({ bet, now, showGroup = false, index = 0 }: { bet: BetVM
           voteDeadline={bet.voteDeadline}
           now={now}
         />
-      </div>
-
-      <h3 className="display mb-4 line-clamp-3 text-[1.45rem] leading-[1.12] text-fg transition-colors group-hover:text-white sm:text-[1.6rem]">
-        {bet.title}
-      </h3>
-
-      <div className="mb-4">
-        {bet.kind === "binary" && <BinaryBar bet={bet} />}
-        {bet.kind === "multi" && <MultiBars bet={bet} />}
-        {bet.kind === "challenge" && <ChallengeLine bet={bet} />}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
-        {people.length > 0 ? <AvatarStack users={people} max={5} size="xs" /> : <span className="text-xs text-faint">No takers yet</span>}
-        <span className="text-sm">
-          <PotLabel bet={bet} />
-        </span>
-        <span className="ml-auto flex items-center gap-1.5">
-          <ClaudeBadge bet={bet} />
-          <MyPick bet={bet} />
+        <span className="ml-auto flex items-center gap-2.5">
+          {people.length > 0 ? <AvatarStack users={people} max={3} size="xs" /> : <span className="text-xs text-faint">No takers yet</span>}
+          <span className="text-sm">
+            <PotLabel bet={bet} />
+          </span>
         </span>
       </div>
     </Link>

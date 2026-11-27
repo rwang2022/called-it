@@ -6,6 +6,7 @@ import { House, Inbox, LogOut, Plus, UserRound, Users } from "lucide-react";
 import { signOut } from "@/lib/actions/auth";
 import { Avatar, type AvatarUser } from "../ui/avatar";
 import { Logo } from "../ui/logo";
+import { GroupMonogram } from "../ui/slip";
 
 type NavGroup = { id: string; name: string; hue: number };
 
@@ -65,12 +66,7 @@ export function Sidebar({ user, groups, inbox }: { user: AvatarUser; groups: Nav
               active(`/g/${g.id}`) ? "bg-white/[0.08] text-fg" : "text-muted hover:bg-white/[0.04] hover:text-fg"
             }`}
           >
-            <span
-              className="grid size-6 place-items-center rounded-lg text-[11px] font-bold text-ink-950"
-              style={{ background: `linear-gradient(135deg, oklch(0.82 0.13 ${g.hue}), oklch(0.66 0.16 ${(g.hue + 40) % 360}))` }}
-            >
-              {g.name.slice(0, 1).toUpperCase()}
-            </span>
+            <GroupMonogram name={g.name} hue={g.hue} className="size-6 rounded-lg text-[0.95rem]" />
             <span className="truncate">{g.name}</span>
           </Link>
         ))}

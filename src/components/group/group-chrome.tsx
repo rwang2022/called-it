@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Check, Link2 } from "lucide-react";
 import { useToast } from "../ui/toast";
 
-export function GroupTabs({ groupId }: { groupId: string }) {
+export function GroupTabs({ groupId, hue }: { groupId: string; hue?: number }) {
   const path = usePathname();
   const base = `/g/${groupId}`;
   const tabs = [
@@ -26,7 +26,18 @@ export function GroupTabs({ groupId }: { groupId: string }) {
             className={`relative shrink-0 px-3.5 pb-3 pt-1 text-[0.93rem] font-medium transition-colors ${on ? "text-fg" : "text-muted hover:text-fg"}`}
           >
             {t.label}
-            {on && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-gradient-to-r from-iris to-sky" />}
+            {on && (
+              <span
+                className="absolute inset-x-2 -bottom-px h-0.5 rounded-full"
+                style={{
+                  background:
+                    hue === undefined
+                      ? "linear-gradient(90deg, var(--color-iris), var(--color-sky))"
+                      : `linear-gradient(90deg, oklch(0.82 0.13 ${hue}), oklch(0.72 0.15 ${(hue + 40) % 360}))`,
+                  boxShadow: hue === undefined ? undefined : `0 0 12px oklch(0.75 0.15 ${hue} / 0.6)`,
+                }}
+              />
+            )}
           </Link>
         );
       })}

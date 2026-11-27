@@ -109,41 +109,59 @@ const RULES: { icon: React.ReactNode; title: string; body: React.ReactNode }[] =
 
 export default function HowItWorks() {
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10">
-      <Link href="/" className="mb-12 inline-block">
+    <div className="mx-auto max-w-3xl px-4 py-10 sm:py-14">
+      <Link href="/" className="mb-14 inline-block animate-fade">
         <Logo />
       </Link>
-      <h1 className="display text-5xl sm:text-6xl">
+      <p className="eyebrow mb-4 animate-rise">The fine print, in plain words</p>
+      <h1 className="display animate-rise text-[3.4rem] leading-[0.95] sm:text-7xl">
         House <em className="text-gradient">rules</em>
       </h1>
-      <p className="mt-4 max-w-xl text-lg text-soft">Simple enough to explain at dinner, strict enough that nobody can weasel out of a bet.</p>
+      <p className="mt-5 max-w-xl animate-rise text-lg leading-relaxed text-soft">
+        Simple enough to explain at dinner, strict enough that nobody can weasel out of a bet.
+      </p>
 
-      <div className="mt-12 grid gap-4">
+      {/* A printed rule card: numbered, ruled, no boxes */}
+      <ol className="mt-14 border-t border-white/10">
         {RULES.map((r, i) => (
-          <section key={r.title} className="surface flex animate-rise gap-4 p-5 sm:p-6" style={{ animationDelay: `${i * 50}ms` }}>
-            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-iris/12 text-iris">{r.icon}</span>
-            <div>
-              <h2 className="mb-1.5 text-[1.05rem] font-semibold">{r.title}</h2>
-              <p className="text-[0.95rem] leading-relaxed text-muted [&_b]:text-fg">{r.body}</p>
+          <li
+            key={r.title}
+            className="grid animate-rise gap-x-8 gap-y-3 border-b border-white/[0.08] py-8 sm:grid-cols-[6.5rem_minmax(0,1fr)]"
+            style={{ animationDelay: `${i * 50}ms` }}
+          >
+            <div className="flex items-center gap-3 pt-1.5 sm:flex-col sm:items-start sm:gap-4">
+              <span className="num text-xs tracking-[0.18em] text-faint">№ {String(i + 1).padStart(2, "0")}</span>
+              <span className="text-gold/80">{r.icon}</span>
             </div>
-          </section>
+            <div>
+              <h2 className="display text-[1.85rem] leading-[1.1]">{r.title}</h2>
+              <p className="mt-3 text-[0.97rem] leading-relaxed text-muted [&_b]:font-semibold [&_b]:text-fg">{r.body}</p>
+            </div>
+          </li>
         ))}
-        <section className="surface flex gap-4 p-5 sm:p-6" style={{ borderColor: "color-mix(in oklab, var(--color-claude) 25%, transparent)" }}>
-          <span className="inline-block size-10 shrink-0">
-            <ClaudeGlyph />
-          </span>
-          <div>
-            <h2 className="mb-1.5 text-[1.05rem] font-semibold">Claude at the table</h2>
-            <p className="text-[0.95rem] leading-relaxed text-muted">
-              On bets about public events, Claude researches the web and locks in a sealed pick when the bet is posted — revealed only
-              once betting closes, so nobody can copy it. It plays for bragging rights (never money) and shows up on the leaderboard, so
-              you can see who actually beats the machine. It can also act as the oracle: when the bet comes due it looks up the result,
-              cites its sources, and makes the call — which you can dispute like any other.
-            </p>
-          </div>
-        </section>
-      </div>
-      <div className="mt-12 text-center">
+      </ol>
+
+      <section
+        className="surface relative mt-12 flex gap-4 overflow-hidden p-6 sm:p-7"
+        style={{ borderColor: "color-mix(in oklab, var(--color-claude) 25%, transparent)" }}
+      >
+        <div aria-hidden className="pointer-events-none absolute -right-20 -top-20 size-56 rounded-full bg-claude/10 blur-3xl" />
+        <span className="relative inline-block size-11 shrink-0">
+          <ClaudeGlyph />
+        </span>
+        <div className="relative">
+          <h2 className="display text-[1.85rem] leading-[1.1]">
+            Claude at the <em>table</em>
+          </h2>
+          <p className="mt-3 text-[0.97rem] leading-relaxed text-muted">
+            On bets about public events, Claude researches the web and locks in a sealed pick when the bet is posted — revealed only
+            once betting closes, so nobody can copy it. It plays for bragging rights (never money) and shows up on the leaderboard, so
+            you can see who actually beats the machine. It can also act as the oracle: when the bet comes due it looks up the result,
+            cites its sources, and makes the call — which you can dispute like any other.
+          </p>
+        </div>
+      </section>
+      <div className="mt-14 text-center">
         <Link href="/home" className="btn btn-primary btn-lg">
           Make a bet
         </Link>

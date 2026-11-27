@@ -4,6 +4,7 @@ import type { AttentionItem } from "@/lib/data/bets";
 import { firstName, money } from "@/lib/format";
 import { ClaudeGlyph } from "./ui/avatar";
 import { Countdown } from "./ui/countdown";
+import { smartQuotes } from "@/lib/ticket-art";
 
 const META = {
   judge: { label: "Make the call", icon: Gavel, color: "#fbbf24" },
@@ -36,11 +37,11 @@ export function AttentionList({ items, payments = [], now }: { items: AttentionI
               {kind === "claude_fallback" ? <span className="inline-block size-5 shrink-0"><ClaudeGlyph /></span> : <Icon className="size-5" />}
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold" style={{ color: m.color }}>
+              <p className="text-[0.66rem] font-semibold uppercase tracking-[0.16em]" style={{ color: m.color }}>
                 {m.label}
                 {kind === "challenge" && <> by {firstName(bet.creator.name)}</>}
               </p>
-              <p className="truncate text-[0.95rem] font-medium text-fg">{bet.title}</p>
+              <p className="display truncate text-[1.25rem] leading-snug text-fg">{smartQuotes(bet.title)}</p>
             </div>
             {deadline && (
               <span className="hidden text-xs text-muted sm:block">
@@ -57,9 +58,9 @@ export function AttentionList({ items, payments = [], now }: { items: AttentionI
             <HandCoins className="size-5" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold text-yes">Confirm a payment</p>
-            <p className="truncate text-[0.95rem] font-medium">
-              {firstName(p.fromName)} says they paid you <span className="num">{money(p.amountCents)}</span>
+            <p className="text-[0.66rem] font-semibold uppercase tracking-[0.16em] text-yes">Confirm a payment</p>
+            <p className="display truncate text-[1.25rem] leading-snug">
+              {firstName(p.fromName)} says they paid you {money(p.amountCents)}
             </p>
           </div>
           <ChevronRight className="size-4 shrink-0 text-faint" />

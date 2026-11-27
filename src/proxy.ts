@@ -5,6 +5,8 @@ const THIRTY_DAYS = 60 * 60 * 24 * 30;
 
 /** Pages that need a signed-in user (an optimistic check; the real one is next to the data). */
 const PROTECTED = /^\/(home|inbox|me|g|bets|u|groups)(\/|$)/;
+/** A single bet. Signed out, it gets a public preview so shared links unfurl with the question. */
+const BET_PAGE = /^\/bets\/([0-9a-z]{10,20})\/?$/;
 
 /**
  * Strict Content Security Policy: scripts run only if they carry this request's
@@ -38,15 +40,18 @@ function contentSecurityPolicy(nonce: string) {
 
 /**
  * Runs on every page request: sets the nonce-based CSP, bounces signed-out
- * visitors away from app pages (keeping where they were headed), and keeps the
+ * visitors away from app pages (keeping where they were headed) except single
+ * bets, which get a public preview, and keeps the
  * session cookie's expiry sliding. Real authorization happens next to the data
  * in every page and server action.
  */
 export function proxy(req: NextRequest) {
   const token = req.cookies.get(SESSION_COOKIE)?.value;
-  if (!token && PROTECTED.test(req.nextUrl.pathname)) {
+  const path = req.nextUrl.pathname;
+  const betPreview = !token && path.match(BET_PAGE);
+  if (!token && !betPreview && PROTECTED.test(path)) {
     const url = new URL("/", req.url);
-    url.searchParams.set("next", req.nextUrl.pathname + req.nextUrl.search);
+    url.searchParams.set("next", path + req.nextUrl.search);
     return NextResponse.redirect(url);
   }
 
@@ -56,7 +61,11 @@ export function proxy(req: NextRequest) {
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("Content-Security-Policy", csp);
-  const res = NextResponse.next({ request: { headers: requestHeaders } });
+  // Signed-out bet links (friends tapping a link, Discord's unfurler) get the
+  // public preview at the same URL; signing in from there lands on the bet.
+  const res = betPreview
+    ? NextResponse.rewrite(new URL(`/share/bet/${betPreview[1]}`, req.url), { request: { headers: requestHeaders } })
+    : NextResponse.next({ request: { headers: requestHeaders } });
   res.headers.set("Content-Security-Policy", csp);
 
   if (token && req.method === "GET") {

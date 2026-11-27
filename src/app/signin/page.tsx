@@ -5,6 +5,7 @@ import { safeNext } from "@/lib/auth/session";
 import { Logo } from "@/components/ui/logo";
 import { GoogleG } from "@/components/auth/google-g";
 import { PasswordForm } from "@/components/auth/password-form";
+import { HueGlow, Slip } from "@/components/ui/slip";
 
 export const metadata = { title: "Sign in", robots: { index: false } };
 
@@ -16,11 +17,36 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center px-4 py-12">
-      <Link href="/" className="mb-10">
+      <HueGlow hue={268} strength={0.14} />
+      <Link href="/" className="mb-10 animate-fade">
         <Logo />
       </Link>
-      <div className="surface w-full max-w-md animate-rise p-6 sm:p-8">
-        <h1 className="display mb-6 text-center text-4xl">{mode === "signup" ? "Pull up a chair" : "Welcome back"}</h1>
+      <Slip
+        hue={268}
+        split="none"
+        className="w-full max-w-md animate-rise"
+        bodyClassName="p-6 sm:p-8"
+        stubClassName="px-6 py-5 sm:px-8"
+        stub={
+          <p className="hint text-center">
+            Forgot your password? If you&apos;ve connected Google, sign in with it and set a new password on your profile.
+          </p>
+        }
+      >
+        <p className="eyebrow mb-3 text-center" style={{ color: "oklch(0.82 0.1 268)" }}>
+          Admit one
+        </p>
+        <h1 className="display mb-7 text-center text-[2.6rem] leading-none">
+          {mode === "signup" ? (
+            <>
+              Pull up a <em>chair</em>
+            </>
+          ) : (
+            <>
+              Welcome <em>back</em>
+            </>
+          )}
+        </h1>
         {googleConfigured() && (
           <>
             <a href={`/api/auth/google?next=${encodeURIComponent(next)}`} className="btn btn-light btn-lg w-full gap-3">
@@ -34,10 +60,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
           </>
         )}
         <PasswordForm next={next} initialMode={mode} />
-        <p className="hint mt-6 text-center">
-          Forgot your password? If you&apos;ve connected Google, sign in with it and set a new password on your profile.
-        </p>
-      </div>
+      </Slip>
     </div>
   );
 }
